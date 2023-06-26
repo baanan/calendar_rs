@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "canvas_tui",
+    "calendar",
+]
