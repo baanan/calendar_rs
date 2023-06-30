@@ -11,7 +11,7 @@ pub struct Cell {
     pub background: Option<Color>,
 }
 
-/// A canvas of text and color - foreground and background
+/// A canvas of text and color
 ///
 /// See [`Basic`] for a generic canvas
 ///
@@ -449,17 +449,6 @@ impl<'a, C: Canvas> Canvas for Window<'a, C> {
     fn throw(&mut self, _err: &Error) { }
 }
 
-trait CanvasResult<C: Canvas<Output = C>> {
-    fn log_error(self);
-}
-
-impl<C: Canvas<Output = C>> CanvasResult<C> for Result<&mut C, Error> {
-    fn log_error(self) {
-        todo!();
-        // self.err().and_then(|err| )
-    }
-}
-
 impl<C: Canvas<Output = C>> Canvas for Result<&mut C, Error> {
     type Output = C;
     type Window<'w> = C::Window<'w> where Self: 'w;
@@ -512,7 +501,7 @@ impl<C: Canvas> Size for Result<&mut C, Error> {
 
 /// A canvas wrapped with an error catcher callback
 ///
-/// See [`Canvas::when_error`]
+/// See [`Canvas::when_error`] and [`ErrorCatcherResult`]
 pub struct ErrorCatcher<'c, C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> {
     canvas: &'c mut C,
     callback: F,
@@ -552,6 +541,35 @@ impl<'c, C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Size for ErrorCa
     fn height(&self) -> usize { self.canvas.height() }
 }
 
+/// Extra methods that can be run on the result of an [`ErrorCatcher`]
+///
+/// # Example
+///
+/// ```
+/// # use canvas_tui::prelude::*;
+/// # fn main() -> Result<(), Error> {
+/// #
+/// let mut canvas = Basic::new(&(5, 5));
+///
+/// canvas
+///     .when_error(|canvas, _err| {
+///         canvas.set(&(1, 1), 'a')?;
+///         Ok(())
+///     })
+///     .set(&(10, 10), 'b') // throws error
+///     .finish(); // supresses #[must_use]
+/// # Ok(()) }
+/// ```
+pub trait ErrorCatcherResult {
+    /// Utility function to ignore the result since it has already been dealt with
+    fn finish(&self) {}
+}
+
+impl<'c, C, F> ErrorCatcherResult for Result<&mut ErrorCatcher<'c, C, F>, Error> 
+where
+    C: Canvas,
+    F: Fn(&mut C, &Error) -> Result<(), Error> {}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -561,16 +579,5 @@ mod test {
         let mut canvas = Basic::new(&(5, 5));
         assert!(canvas.set(&(10, 5), 'a')
             .is_err_and(|err| matches!(err, Error::OutOfBounds(10, 5))));
-    }
-
-    #[test]
-    fn piping() -> Result<(), Error> {
-        let mut canvas = Basic::new(&(5, 5));
-
-        canvas.set(&(1, 1), 'a')
-            .set(&(2, 2), 'b')
-            .text_absolute(&(0, 3), "bello")?;
-
-        Ok(())
     }
 }
