@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{num::{Vec2, Size, SignedSize}, canvas::{Canvas, Window}, Error};
+use crate::{num::{Vec2, Size, SignedSize}, canvas::Canvas, Error};
 
 /// Represents the position of an object in relation to the canvas
 #[derive(Debug, Clone)]
@@ -29,6 +29,7 @@ pub enum Just {
 
     OffsetFrom(Box<Just>, Vec2),
     OffsetFromUnchecked(Box<Just>, Vec2),
+    AtUnchecked(Vec2),
 }
 
 impl Just {
@@ -38,7 +39,8 @@ impl Just {
     ///
     /// # Errors
     ///
-    /// - If the object can't fit into the canvas with the justification
+    /// - If the object can't fit into the canvas with the justification 
+    /// (unless the justification is unchecked)
     pub fn get(&self, canvas: &impl Size, object: &impl Size) -> Result<Vec2, Error> {
         let canvas = Vec2::from_size(canvas).expect("expected a valid canvas size");
         let object = Vec2::from_size(object).expect("expected a valid object size");
@@ -88,6 +90,7 @@ impl Just {
             // offset
             Just::OffsetFrom(other, offset) => Self::compute_offset(other, *offset, canvas, object)?,
             Just::OffsetFromUnchecked(other, offset) => return Self::compute_offset(other, *offset, canvas, object),
+            Just::AtUnchecked(pos) => return Ok(*pos),
         };
 
         let bottom_right = pos + object;
@@ -110,7 +113,7 @@ impl Just {
     /// # Errors
     ///
     /// - If the object can't fit into the canvas with the justification
-    pub fn window<'a>(&'a self, canvas: &'a mut impl Canvas, size: &impl Size) -> Result<Window, Error> {
+    pub fn window<'a, C: Canvas>(&'a self, canvas: &'a mut C, size: &impl Size) -> Result<C::Window<'_>, Error> {
         canvas.window(self, size)
     }
 

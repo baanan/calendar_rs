@@ -2,6 +2,9 @@ use std::{ops::{Add, Sub, Neg, Mul, Div}, fmt::Display};
 
 use crate::Error;
 
+/// An immutable pairing of two numbers, most commonly representing either a [position](Pos) or [size](Size) 
+///
+/// Most operations work on these, and multiplication is element-wise (Hadamard)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct Vec2 { pub x: isize, pub y: isize, }
 
@@ -16,9 +19,13 @@ impl Vec2 {
     /// # Errors
     ///
     /// - If the size's width or height is too big to fit into an [`isize`]
-    /// (which is pretty much impossible)
     pub fn from_size(size: &impl Size) -> Result<Self, Error> {
         (size.width(), size.height()).try_into()
+    }
+
+    /// Creates a Vec2 from a generic [`Pos`]
+    pub fn from_pos(pos: &impl Pos) -> Self {
+        Self::new(pos.x(), pos.y())
     }
 
     #[must_use]
@@ -53,16 +60,30 @@ impl Vec2 {
 }
 
 
+/// Something that could represent a position
+///
+/// Most commonly one of:
+/// - `(isize, isize)` (for constant positions)
+/// - [`Vec2`] (for variable positions)
 pub trait Pos {
     fn x(&self) -> isize;
     fn y(&self) -> isize;
 }
 
+/// Something that represents or has a size
+///
+/// Most commonly one of:
+/// - `(usize, usize)` (for constant sizes)
+/// - [`Vec2`] (for variable sizes)
+/// - [`Canvas`](crate::prelude::Canvas)
 pub trait Size {
     fn width(&self) -> usize;
     fn height(&self) -> usize;
 }
 
+/// Something that has a size, but signed 
+///
+/// It's often useful when passing around [`Vec2`]s
 pub trait SignedSize {
     fn width_signed(&self) -> isize;
     fn height_signed(&self) -> isize;
@@ -90,7 +111,6 @@ impl Display for Vec2 {
         write!(f, "({x}, {y})")
     }
 }
-
 
 
 impl From<isize> for Vec2 {
@@ -127,8 +147,8 @@ impl TryFrom<(usize, usize)> for Vec2 {
     type Error = crate::Error;
     fn try_from(value: (usize, usize)) -> Result<Self, Self::Error> {
         let (x, y) = value;
-        let x = x.try_into().map_err(|_| Self::Error::TooLarge(x))?;
-        let y = y.try_into().map_err(|_| Self::Error::TooLarge(y))?;
+        let x = x.try_into().map_err(|_| Self::Error::TooLarge("x value", x))?;
+        let y = y.try_into().map_err(|_| Self::Error::TooLarge("y value", y))?;
         Ok(Self { x, y })
     }
 }
@@ -148,6 +168,11 @@ impl Pos for (isize, isize) {
 impl Size for (usize, usize) {
     fn width(&self) -> usize { self.0 }
     fn height(&self) -> usize { self.1 }
+}
+
+impl SignedSize for (isize, isize) {
+    fn width_signed(&self) -> isize { self.0 }
+    fn height_signed(&self) -> isize { self.1 }
 }
 
 
@@ -187,11 +212,18 @@ impl Neg for Vec2 {
     }
 }
 
-// probably not correct, but it works
+// element-wise / hadamard
 impl Mul for Vec2 {
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
         Self { x: self.x * rhs.x, y: self.y * rhs.y }
+    }
+}
+
+impl Div for Vec2 {
+    type Output = Self;
+    fn div(self, rhs: Self) -> Self::Output {
+        Self { x: self.x / rhs.x, y: self.y / rhs.y }
     }
 }
 
