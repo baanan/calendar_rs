@@ -273,24 +273,28 @@ pub trait Canvas : Size + Sized {
     }
     /// Gets the underlying canvas
     ///
-    /// **Note:** This is mainly only meant to be used internally
+    /// **Note:** This is guaranteed not to panic if calling [`Self::error`] returns [`Ok`]
+    ///
+    /// **Note:** This is mainly only meant to be used internally, please use [`Result::unwrap`] or
+    /// `?` instead
     ///
     /// # Panics
     ///
-    /// This never panics when directly using a normal canvas ([`Basic`] or [`Window`]),
-    /// but can panic when piping instructions on a [`Result<Canvas, Error>`]
+    /// - If the base canvas isn't owned anymore, such as when piping instructions
+    /// on a [`Result<&mut Canvas, Error>`] results with an [`Err`]
     fn unwrap_base_canvas(&mut self) -> &mut Self::Output;
     /// Gets any errors the canvas has
     ///
-    /// Normal canvases ([`Basic`] or [`Window`]) never have an error,
-    /// but piping instructions on a [`Result<Canvas, Error>`] can
+    /// This only ever occurs when piping instructions on a [`Result<&mut Canvas, Error>`], unless
+    /// a foreign type uses it as well
     ///
-    /// **Note:** This is mainly only meant to be used internally
+    /// **Note:** This is mainly only meant to be used internally in order to propagate errors
     #[allow(clippy::missing_errors_doc)]
     fn error(&self) -> Result<(), Error>;
     /// [Throws](Canvas::throw) on an error if it exists
     ///
-    /// **Note:** This is mainly meant to be used internally
+    /// **Note:** This is mainly only meant to be used internally, all methods already catch any
+    /// errors they encounter
     #[allow(clippy::missing_errors_doc)]
     fn catch<T>(&mut self, res: Result<T, Error>) -> Result<T, Error> {
         if let Err(ref err) = res {
@@ -302,7 +306,8 @@ pub trait Canvas : Size + Sized {
     ///
     /// See [`Canvas::when_error`] and [`ErrorCatcher`]
     ///
-    /// **Note:** This is mainly only meant to be used internally
+    /// **Note:** This is mainly only meant to be used internally, all methods already catch any
+    /// errors they encounter
     fn throw(&mut self, err: &Error);
 }
 
@@ -552,7 +557,7 @@ impl<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Size for ErrorCatche
     fn height(&self) -> usize { self.canvas.height() }
 }
 
-/// Extra methods that can be run on the result of a canvas method
+/// Extra methods that can be run on the result of a function run on a canvas
 #[allow(clippy::module_name_repetitions)]
 pub trait CanvasResult {
     /// Ignore the result, especially for when the canvas is using
@@ -578,9 +583,7 @@ pub trait CanvasResult {
     fn discard_result(&self) {}
 }
 
-impl<C> CanvasResult for Result<&mut C, Error> 
-where
-    C: Canvas {}
+impl<C: Canvas> CanvasResult for Result<&mut C, Error> {}
 
 #[cfg(test)]
 mod test {
