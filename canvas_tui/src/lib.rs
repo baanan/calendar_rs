@@ -8,7 +8,7 @@ pub mod color;
 pub mod justification;
 pub mod prelude;
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     #[error("tried to access out of bounds position ({0}, {1})")]
     OutOfBounds(isize, isize),

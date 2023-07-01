@@ -4,6 +4,15 @@ use super::{color::Color, num::Vec2};
 use array2d::Array2D;
 use crate::Error;
 
+// some kind of box module with constant box char arrays
+// canvas.rect(&Just::Centered, &(5, 5), box::light)
+//
+// .stroke(fore, back) and .fill(fore, back)
+// stroke change set, fill change shapes
+
+#[allow(clippy::missing_const_for_fn)]
+fn discard_reference<T>(_: T) {}
+
 /// A cell of a canvas, holding the text and highlight
 pub struct Cell {
     pub text: char,
@@ -221,7 +230,7 @@ pub trait Canvas : Size + Sized {
     /// # Ok(()) }
     /// ```
     fn text_absolute(&mut self, pos: &impl Pos, string: &str) -> Result<&mut Self::Output, Error> {
-        if let Some(err) = self.error() { return Err(err); }
+        self.error()?;
 
         let size = self.catch(Vec2::from_size(self))?;
         let pos = Vec2::from_pos(pos);
@@ -229,10 +238,10 @@ pub trait Canvas : Size + Sized {
             let charpos = pos.add_x(charnum);
             let res = self.set_without_catch(&charpos, chr)
                 // add a nice error
-                .map_err(|_| Error::TextOverflow { starting: pos, text: string.to_owned(), ending: charpos, size });
-            // have to use if-let instead of catch or the mutable reference in res will conflict
-            // with the mutable reference for catch
-            if let Err(err) = res { self.throw(&err); }
+                .map_err(|_| Error::TextOverflow { starting: pos, text: string.to_owned(), ending: charpos, size })
+                .map(discard_reference); // discard the mutable reference
+            // have to do it like this because both the above and catch need a mutable reference
+            self.catch(res)?;
         }
 
         Ok(self.unwrap_base_canvas())
@@ -247,24 +256,19 @@ pub trait Canvas : Size + Sized {
     /// # use canvas_tui::prelude::*;
     /// # fn main() -> Result<(), Error> {
     /// #
-    /// let mut canvas = Basic::new(&(5, 5));
-    ///
-    /// # #[allow(unused_variables)]
-    /// let res = canvas
+    /// let mut canvas = Basic::new(&(5, 5))
     ///     .when_error(|canvas, _err| {
     ///         canvas.set(&(1, 1), 'a')?;
     ///         Ok(())
-    ///     })
-    ///     .set(&(10, 10), 'b'); // throws error
-    /// # // other code gets angry at a reference being dropped, but this is more unreadable
-    /// # let mut when_error = canvas.when_error(|canvas, _err| { canvas.set(&(1, 1), 'a')?; Ok(()) });
-    /// # let res = when_error.set(&(10, 10), 'b');
+    ///     });
+    ///
+    /// let res = canvas.set(&(10, 10), 'b'); // throws error
     ///
     /// assert!(matches!(res, Err(Error::OutOfBounds(..))));
-    /// assert_eq!(canvas.get(&(1, 1))?.text, 'a');
+    /// assert_eq!(canvas.get(&(1, 1))?.text, 'a'); // when_error was run
     /// # Ok(()) }
     /// ```
-    fn when_error<F: Fn(&mut Self, &Error) -> Result<(), Error>>(&mut self, callback: F) -> ErrorCatcher<Self, F> {
+    fn when_error<F: Fn(&mut Self, &Error) -> Result<(), Error>>(self, callback: F) -> ErrorCatcher<Self, F> {
         ErrorCatcher { canvas: self, callback }
     }
     /// Gets the underlying canvas
@@ -282,10 +286,11 @@ pub trait Canvas : Size + Sized {
     /// but piping instructions on a [`Result<Canvas, Error>`] can
     ///
     /// **Note:** This is mainly only meant to be used internally
-    fn error(&self) -> Option<Error>;
+    #[allow(clippy::missing_errors_doc)]
+    fn error(&self) -> Result<(), Error>;
     /// [Throws](Canvas::throw) on an error if it exists
     ///
-    /// This is mainly meant to be used internally
+    /// **Note:** This is mainly meant to be used internally
     #[allow(clippy::missing_errors_doc)]
     fn catch<T>(&mut self, res: Result<T, Error>) -> Result<T, Error> {
         if let Err(ref err) = res {
@@ -378,7 +383,7 @@ impl Canvas for Basic {
     }
 
     fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
-    fn error(&self) -> Option<Error> { None }
+    fn error(&self) -> Result<(), Error> { Ok(()) }
     fn throw(&mut self, _err: &Error) { }
 }
 
@@ -424,10 +429,6 @@ impl<'a, C: Canvas> Canvas for Window<'a, C> {
         }
     }
 
-    fn get(&self, pos: &impl Pos) -> Result<Cell, Error> {
-        self.canvas.get(&(Vec2::from_pos(pos) + self.offset))
-    }
-
     fn highlight_without_catch(
         &mut self,
         pos: &impl Pos,
@@ -440,13 +441,17 @@ impl<'a, C: Canvas> Canvas for Window<'a, C> {
         }
     }
 
+    fn get(&self, pos: &impl Pos) -> Result<Cell, Error> {
+        self.canvas.get(&(Vec2::from_pos(pos) + self.offset))
+    }
+
     fn window_absolute(&mut self, pos: &impl Pos, size: &impl Size) -> Result<Self::Window<'_>, Error> {
         Window::new(self.canvas, &(Vec2::from_pos(pos) + self.offset), size)
     }
 
     fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
-    fn error(&self) -> Option<Error> { None }
-    fn throw(&mut self, _err: &Error) { }
+    fn error(&self) -> Result<(), Error> { Ok(()) }
+    fn throw(&mut self, err: &Error) { self.canvas.throw(err) }
 }
 
 impl<C: Canvas<Output = C>> Canvas for Result<&mut C, Error> {
@@ -488,7 +493,7 @@ impl<C: Canvas<Output = C>> Canvas for Result<&mut C, Error> {
 
     #[allow(clippy::unwrap_used)]
     fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self.as_mut().unwrap() }
-    fn error(&self) -> Option<Error> { self.as_ref().err().map(Clone::clone) }
+    fn error(&self) -> Result<(), Error> { self.as_ref().map(|_| ()).map_err(Clone::clone) }
     fn throw(&mut self, err: &Error) {
         if let Ok(canvas) = self { canvas.throw(err) }
     }
@@ -501,18 +506,21 @@ impl<C: Canvas> Size for Result<&mut C, Error> {
 
 /// A canvas wrapped with an error catcher callback
 ///
-/// See [`Canvas::when_error`] and [`ErrorCatcherResult`]
-pub struct ErrorCatcher<'c, C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> {
-    canvas: &'c mut C,
+/// See [`Canvas::when_error`] and [`CanvasResult::discard_result`]
+pub struct ErrorCatcher<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> {
+    canvas: C,
     callback: F,
 }
 
-impl<'c, C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Canvas for ErrorCatcher<'c, C, F> {
+impl<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Canvas for ErrorCatcher<C, F> {
     type Output = Self;
-    type Window<'w> = C::Window<'w> where Self: 'w;
+    type Window<'w> = Window<'w, Self> where Self: 'w;
 
-    fn set_without_catch(&mut self, pos: &impl Pos, chr: char) -> Result<&mut Self::Output, Error> { self.canvas.set_without_catch(pos, chr)?; Ok(self) }
-    fn get(&self, pos: &impl Pos) -> Result<Cell, Error> { self.canvas.get(pos) }
+    fn set_without_catch(&mut self, pos: &impl Pos, chr: char) -> Result<&mut Self::Output, Error> {
+        self.canvas.set_without_catch(pos, chr)?; 
+        Ok(self)
+    }
+
     fn highlight_without_catch(
         &mut self,
         pos: &impl Pos,
@@ -522,53 +530,57 @@ impl<'c, C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Canvas for Error
         self.canvas.highlight_without_catch(pos, foreground, background)?;
         Ok(self)
     }
-    // windows already report to the base canvas for things (including catching errors),
-    // so it isn't necessary to wrap the window in another error catcher
+
+    fn get(&self, pos: &impl Pos) -> Result<Cell, Error> { self.canvas.get(pos) }
+
+    // the window has to specifically wrap around the ErrorCatcher
+    // so the throws can be redirected here
     fn window_absolute(&mut self, pos: &impl Pos, size: &impl Size) -> Result<Self::Window<'_>, Error> {
-        self.canvas.window_absolute(pos, size)
+        Window::new(self, pos, size)
     }
 
     fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
-    fn error(&self) -> Option<Error> { None }
+    fn error(&self) -> Result<(), Error> { Ok(()) }
     fn throw(&mut self, err: &Error) {
-        // don't recursively throw errors, otherwise the program could easily get into an infinite loop
-        (self.callback)(self.canvas, err).expect("when_error callback threw an error");
+        (self.callback)(&mut self.canvas, err)
+            .expect("when_error callback threw an error itself. Not rerunning to prevent an infinite loop");
     }
 }
 
-impl<'c, C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Size for ErrorCatcher<'c, C, F> {
+impl<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Size for ErrorCatcher<C, F> {
     fn width(&self) -> usize { self.canvas.width() }
     fn height(&self) -> usize { self.canvas.height() }
 }
 
-/// Extra methods that can be run on the result of an [`ErrorCatcher`]
-///
-/// # Example
-///
-/// ```
-/// # use canvas_tui::prelude::*;
-/// # fn main() -> Result<(), Error> {
-/// #
-/// let mut canvas = Basic::new(&(5, 5));
-///
-/// canvas
-///     .when_error(|canvas, _err| {
-///         canvas.set(&(1, 1), 'a')?;
-///         Ok(())
-///     })
-///     .set(&(10, 10), 'b') // throws error
-///     .finish(); // supresses #[must_use]
-/// # Ok(()) }
-/// ```
-pub trait ErrorCatcherResult {
-    /// Utility function to ignore the result since it has already been dealt with
-    fn finish(&self) {}
+/// Extra methods that can be run on the result of a canvas method
+#[allow(clippy::module_name_repetitions)]
+pub trait CanvasResult {
+    /// Ignore the result, especially for when the canvas is using
+    /// [`when_error`](Canvas::when_error)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use canvas_tui::prelude::*;
+    /// # fn main() -> Result<(), Error> {
+    /// #
+    /// let mut canvas = Basic::new(&(5, 5));
+    ///
+    /// canvas
+    ///     .when_error(|canvas, _err| {
+    ///         canvas.set(&(1, 1), 'a')?;
+    ///         Ok(())
+    ///     })
+    ///     .set(&(10, 10), 'b') // throws error
+    ///     .discard_result(); // supresses #[must_use]
+    /// # Ok(()) }
+    /// ```
+    fn discard_result(&self) {}
 }
 
-impl<'c, C, F> ErrorCatcherResult for Result<&mut ErrorCatcher<'c, C, F>, Error> 
+impl<C> CanvasResult for Result<&mut C, Error> 
 where
-    C: Canvas,
-    F: Fn(&mut C, &Error) -> Result<(), Error> {}
+    C: Canvas {}
 
 #[cfg(test)]
 mod test {
@@ -579,5 +591,40 @@ mod test {
         let mut canvas = Basic::new(&(5, 5));
         assert!(canvas.set(&(10, 5), 'a')
             .is_err_and(|err| matches!(err, Error::OutOfBounds(10, 5))));
+    }
+
+    #[test]
+    fn text_overflow() {
+        let mut canvas = Basic::new(&(5, 3));
+        // .....
+        // ..hello
+        // .....
+        let res = canvas.text_absolute(&(2, 1), "hello");
+        assert!(res.is_err());
+        let err = res.err().expect("asserted");
+        assert_eq!(err, Error::TextOverflow {
+            starting: Vec2::new(2, 1),
+            text: "hello".into(),
+            ending: Vec2::new(5, 1),
+            size: Vec2::new(5, 3)
+        });
+    }
+
+    #[test]
+    fn window_error_catch() -> Result<(), Error> {
+        let mut canvas = Basic::new(&(5, 5))
+            .when_error(|canvas, _| {
+                canvas.set(&(1, 1), 'e')?; 
+                Ok(())
+            });
+
+        let mut window = canvas.window_absolute(&(1, 1), &(3, 3))?;
+
+        let res = window.set(&(10, 10), 'a'); // throws error
+
+        assert!(res.is_err_and(|err| matches!(err, Error::OutOfBounds(..))));
+        assert_eq!(canvas.get(&(1, 1))?.text, 'e'); // when_error was run
+
+        Ok(())
     }
 }

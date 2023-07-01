@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{num::{Vec2, Size, SignedSize}, canvas::Canvas, Error};
 
 /// Represents the position of an object in relation to the canvas
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Just {
     At(Vec2),
     Centered,
