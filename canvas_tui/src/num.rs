@@ -9,6 +9,8 @@ use crate::Error;
 pub struct Vec2 { pub x: isize, pub y: isize, }
 
 impl Vec2 {
+    pub const ZERO: Self = Self::new(0, 0);
+
     #[must_use]
     pub const fn new(x: isize, y: isize) -> Self {
         Self { x, y }
@@ -69,6 +71,9 @@ pub trait Pos {
     fn x(&self) -> isize;
     fn y(&self) -> isize;
 }
+
+// PERF: might want to look into fully replacing Size with SignedSize if it's taking too much time
+// to convert
 
 /// Something that represents or has a size
 ///

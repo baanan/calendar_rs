@@ -19,7 +19,9 @@ pub enum Error {
     #[error("justification {justification} could not fit object of size {object} in canvas of size {canvas}")]
     JustificationOutOfBounds { canvas: Vec2, object: Vec2, justification: Just },
     #[error("text '{text}' overflew at {ending}. It started at {starting}, but the size of the canvas was only {size}")]
-    TextOverflow { starting: Vec2, text: String, ending: Vec2, size: Vec2 }
+    TextOverflow { starting: Vec2, text: String, ending: Vec2, size: Vec2 },
+    #[error("Box was too big. It started at {pos} with dimensions {size}, but the canvas was only {canvas}")]
+    BoxTooBig { pos: Vec2, size: Vec2, canvas: Vec2 },
 }
 
 impl From<array2d::Error> for Error {
