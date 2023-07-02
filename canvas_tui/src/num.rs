@@ -1,4 +1,4 @@
-use std::{ops::{Add, Sub, Neg, Mul, Div}, fmt::Display};
+use std::{ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign}, fmt::Display};
 
 use crate::Error;
 
@@ -28,6 +28,11 @@ impl Vec2 {
     /// Creates a Vec2 from a generic [`Pos`]
     pub fn from_pos(pos: &impl Pos) -> Self {
         Self::new(pos.x(), pos.y())
+    }
+
+    /// Creates a Vec2 from a generic [`SignedSize`]
+    pub fn from_signed_size(size: &impl SignedSize) -> Self {
+        Self::new(size.width_signed(), size.height_signed())
     }
 
     #[must_use]
@@ -196,6 +201,15 @@ impl Add<isize> for Vec2 {
     }
 }
 
+impl AddAssign for Vec2 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        };
+    }
+}
+
 impl Sub for Vec2 {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {
@@ -207,6 +221,15 @@ impl Sub<isize> for Vec2 {
     type Output = Self;
     fn sub(self, rhs: isize) -> Self::Output {
         Self { x: self.x - rhs, y: self.y - rhs }
+    }
+}
+
+impl SubAssign for Vec2 {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        };
     }
 }
 

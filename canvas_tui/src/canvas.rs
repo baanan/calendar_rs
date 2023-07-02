@@ -658,7 +658,6 @@ pub trait DrawResultMethods<C: Canvas<Output = C>> {
     /// ```
     /// # use canvas_tui::prelude::*;
     /// # fn main() -> Result<(), Error> {
-    /// #
     /// let mut canvas = Basic::new(&(5, 3));
     /// canvas.text(&Just::Centered, "foo").color(Color::WHITE, None)?;
     ///
@@ -673,7 +672,52 @@ pub trait DrawResultMethods<C: Canvas<Output = C>> {
     /// # Errors
     ///
     /// - If the result is an error
+    /// - If there is not enough room for the color (after [`Self::grow_bounds`])
     fn color(&mut self, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>) -> DrawResult<C>;
+    /// Colors the last drawn object with `foreground`
+    ///
+    /// See [`Self::color`]
+    ///
+    /// # Errors
+    ///
+    /// - If the result is an error
+    /// - If there is not enough room for the color (after [`Self::grow_bounds`])
+    fn fore(&mut self, foreground: impl Into<Option<Color>>) -> DrawResult<C> {
+        self.color(foreground, None)
+    }
+    /// Colors the last drawn object with `background`
+    ///
+    /// See [`Self::color`]
+    ///
+    /// # Errors
+    ///
+    /// - If the result is an error
+    /// - If there is not enough room for the color (after [`Self::grow_bounds`])
+    fn back(&mut self, background: impl Into<Option<Color>>) -> DrawResult<C> {
+        self.color(None, background)
+    }
+    /// Expands the stored bounds of the last drawn object, not changing the canvas
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use canvas_tui::prelude::*;
+    /// # fn main() -> Result<(), Error> {
+    /// let mut canvas = Basic::new(&(7, 3));
+    /// canvas.text(&Just::Centered, "foo").grow_bounds(&(1, 0)).color(Color::WHITE, None)?;
+    ///
+    /// // .......
+    /// // .-foo-. (color represented by -)
+    /// // .......
+    /// assert_eq!(canvas.get(&(0, 1))?.foreground, None);
+    /// assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Color::WHITE));
+    /// assert_eq!(canvas.get(&(3, 1))?.foreground, Some(Color::WHITE));
+    /// assert_eq!(canvas.get(&(5, 1))?.foreground, Some(Color::WHITE));
+    /// assert_eq!(canvas.get(&(6, 1))?.foreground, None);
+    /// # Ok(()) }
+    /// ```
+    #[must_use]
+    fn grow_bounds(self, size: &impl SignedSize) -> Self;
     /// Ignore the result, especially for when the canvas is using
     /// [`when_error`](Canvas::when_error)
     ///
@@ -702,6 +746,18 @@ impl<'c, C: Canvas<Output = C>> DrawResultMethods<C> for DrawResult<'c, C> {
         match self {
             Ok(info) => info.output.highlight_box(&info.pos, &info.size, foreground, background),
             Err(err) => Err(err.clone()),
+        }
+    }
+
+    fn grow_bounds(self, size: &impl SignedSize) -> Self {
+        match self {
+            Ok(mut info) => {
+                let size = Vec2::from_signed_size(size);
+                info.pos -= size;
+                info.size += size * 2;
+                Ok(info)
+            },
+            Err(err) => Err(err),
         }
     }
 }
