@@ -7,6 +7,7 @@ pub mod canvas;
 pub mod color;
 pub mod justification;
 pub mod prelude;
+pub mod text;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
@@ -18,10 +19,10 @@ pub enum Error {
     NegativeIndex(isize),
     #[error("justification {justification} could not fit object of size {object} in canvas of size {canvas}")]
     JustificationOutOfBounds { canvas: Vec2, object: Vec2, justification: Just },
-    #[error("text '{text}' overflew at {ending}. It started at {starting}, but the size of the canvas was only {size}")]
-    TextOverflow { starting: Vec2, text: String, ending: Vec2, size: Vec2 },
-    #[error("Box was too big. It started at {pos} with dimensions {size}, but the canvas was only {canvas}")]
-    BoxTooBig { pos: Vec2, size: Vec2, canvas: Vec2 },
+    #[error("text '{text}' overflew at {ending}. It started at {starting}, but the size of the canvas was only {canvas}")]
+    TextOverflow { starting: Vec2, text: String, ending: Vec2, canvas: Vec2 },
+    #[error("Object `{name}` didn't have enough space. It started at {pos} with dimensions {size}, but the canvas was only {canvas}")]
+    ItemTooBig { pos: Vec2, size: Vec2, canvas: Vec2, name: &'static str },
 }
 
 impl From<array2d::Error> for Error {

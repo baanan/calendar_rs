@@ -201,6 +201,13 @@ impl Add<isize> for Vec2 {
     }
 }
 
+impl Add<(isize, isize)> for Vec2 {
+    type Output = Self;
+    fn add(self, (x, y): (isize, isize)) -> Self::Output {
+        Self { x: self.x + x, y: self.y + y }
+    }
+}
+
 impl AddAssign for Vec2 {
     fn add_assign(&mut self, rhs: Self) {
         *self = Self {
@@ -221,6 +228,13 @@ impl Sub<isize> for Vec2 {
     type Output = Self;
     fn sub(self, rhs: isize) -> Self::Output {
         Self { x: self.x - rhs, y: self.y - rhs }
+    }
+}
+
+impl Sub<(isize, isize)> for Vec2 {
+    type Output = Self;
+    fn sub(self, (x, y): (isize, isize)) -> Self::Output {
+        Self { x: self.x - x, y: self.y - y }
     }
 }
 
