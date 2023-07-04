@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{num::{Vec2, Size, SignedSize}, canvas::Canvas, Error};
+use crate::{num::{Vec2, Size}, canvas::Canvas, Error};
 
 /// Represents the position of an object in relation to the canvas
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,10 +42,12 @@ impl Just {
     /// - If the object can't fit into the canvas with the justification 
     /// (unless the justification is unchecked)
     pub fn get(&self, canvas: &impl Size, object: &impl Size) -> Result<Vec2, Error> {
-        let canvas = Vec2::from_size(canvas).expect("expected a valid canvas size");
-        let object = Vec2::from_size(object).expect("expected a valid object size");
+        let canvas = Vec2::from_size(canvas);
+        let object = Vec2::from_size(object);
 
-        if object.width() > canvas.width() || object.height() > canvas.height() { return self.oob_error(canvas, object) }
+        if object.width() > canvas.width() || object.height() > canvas.height() {
+            return self.oob_error(canvas, object)
+        }
 
         // PERF: test this
         // I don't know if this has a noticeable performance impact,
@@ -54,8 +56,8 @@ impl Just {
         let max = canvas - object - 1;
         let center = (canvas - object) / 2;
 
-        let width = canvas.width_signed();
-        let height = canvas.height_signed();
+        let width = canvas.width();
+        let height = canvas.height();
 
         #[allow(clippy::use_self)]
         let pos = match self {

@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{num::{Size, SignedSize, Pos}, justification::Just, prelude::box_chars};
+use crate::{num::{Size, Pos}, justification::Just, prelude::box_chars};
 
 use super::{color::Color, num::Vec2};
 use array2d::Array2D;
@@ -28,8 +28,8 @@ macro_rules! catch {
     };
 }
 
-fn check_bounds(pos: Vec2, size: Vec2, canvas: &impl SignedSize, name: &'static str) -> Result<(), Error> {
-    let canvas = Vec2::from_signed_size(canvas);
+fn check_bounds(pos: Vec2, size: Vec2, canvas: &impl Size, name: &'static str) -> Result<(), Error> {
+    let canvas = Vec2::from_size(canvas);
     let outer = pos + size;
     if outer.x > canvas.x || outer.y > canvas.y {
         return Err(Error::ItemTooBig { pos, size, canvas, name })
@@ -69,7 +69,7 @@ pub struct Cell {
 /// assert_eq!(canvas.get(&(1, 3))?.text, 'e');
 /// # Ok(()) }
 /// ```
-pub trait Canvas : Size + SignedSize + Sized {
+pub trait Canvas : Size + Sized {
     /// The output canvas
     ///
     /// This is [`Self`] in normal canvases ([`Basic`] or [`Window`]),
@@ -264,10 +264,27 @@ pub trait Canvas : Size + SignedSize + Sized {
     /// - If the canvas has an outstading error (see [`DrawResult`])
     fn print_monochrome(&self) -> Result<(), Error> {
         self.error()?;
-        let canvas = Vec2::from_signed_size(self);
-        for y in 0..canvas.height_signed() {
-            for x in 0..canvas.width_signed() {
+        let canvas = Vec2::from_size(self);
+        for y in 0..canvas.height() {
+            for x in 0..canvas.width() {
                 print!("{}", self.get(&(x, y)).expect("in-bounds get to not fail").text);
+            }
+            println!();
+        }
+        Ok(())
+    }
+    /// Prints the canvas with color to stdout
+    ///
+    /// # Errors
+    ///
+    /// - If the canvas has an outstading error (see [`DrawResult`])
+    fn print(&self) -> Result<(), Error> {
+        self.error()?;
+        let canvas = Vec2::from_size(self);
+        for y in 0..canvas.height() {
+            for x in 0..canvas.width() {
+                let cell = self.get(&(x, y)).expect("in-bounds get to not fail");
+                print!("{}", Color::paint(cell.text, cell.foreground, cell.background));
             }
             println!();
         }
@@ -280,8 +297,8 @@ pub trait Canvas : Size + SignedSize + Sized {
     /// - If the canvas has an outstading error (see [`DrawResult`])
     fn fill(&mut self, chr: char) -> DrawResult<Self::Output> {
         self.error()?;
-        let size = Vec2::from_signed_size(self);
-        for pos in iproduct!(0..size.width_signed(), 0..size.height_signed()) {
+        let size = Vec2::from_size(self);
+        for pos in iproduct!(0..size.width(), 0..size.height()) {
             catch!(self.set(&pos, chr));
         }
         Ok(DrawInfo::new(self.unwrap_base_canvas(), Vec2::ZERO, size))
@@ -319,13 +336,13 @@ pub trait Canvas : Size + SignedSize + Sized {
         self.error()?;
 
         let pos = Vec2::from_pos(pos);
-        let size = self.catch(Vec2::from_size(size))?;
+        let size = Vec2::from_size(size);
         self.catch(check_bounds(pos, size, self, "highlight"))?;
         
         let foreground = foreground.into();
         let background = background.into();
 
-        for offset in iproduct!(0..size.width_signed(), 0..size.height_signed()) {
+        for offset in iproduct!(0..size.width(), 0..size.height()) {
             let coord = pos + Vec2::from(offset);
             self.highlight(&coord, foreground, background)?;
         }
@@ -381,7 +398,7 @@ pub trait Canvas : Size + SignedSize + Sized {
     fn text_absolute(&mut self, pos: &impl Pos, string: &str) -> DrawResult<Self::Output> {
         self.error()?;
 
-        let canvas = Vec2::from_signed_size(self);
+        let canvas = Vec2::from_size(self);
         let pos = Vec2::from_pos(pos);
         for (charnum, chr) in (0..).zip(string.chars()) {
             let charpos = pos.add_x(charnum);
@@ -448,14 +465,14 @@ pub trait Canvas : Size + SignedSize + Sized {
     fn rect_absolute(&mut self, pos: &impl Pos, size: &impl Size, chars: &'static box_chars::Chars) -> DrawResult<Self::Output> {
         self.error()?;
 
-        let size = self.catch(Vec2::from_size(size))?;
+        let size = Vec2::from_size(size);
         let pos = Vec2::from_pos(pos);
         self.catch(check_bounds(pos, size, self, "rect"))?;
 
         let top = 0;
-        let bottom = size.height_signed() - 1;
+        let bottom = size.height() - 1;
         let left = 0;
-        let right = size.width_signed() - 1;
+        let right = size.width() - 1;
 
         for x in (left + 1)..right {
             catch!(self.set(&(pos + (x, top)), chars.horizontal()));
@@ -525,37 +542,34 @@ pub struct Basic {
 
 impl Basic {
     pub fn new(size: &impl Size) -> Self {
-        Self::filled_with(' ', None, None, size)
+        Self::filled_with(size, ' ', None, None)
     }
 
     pub fn filled_with_text(size: &impl Size, chr: char) -> Self {
-        Self::filled_with(chr, None, None, size)
+        Self::filled_with(size, chr, None, None)
     }
 
     pub fn filled_with(
+        size: &impl Size,
         chr: char,
         foreground: impl Into<Option<Color>>,
         background: impl Into<Option<Color>>,
-        size: &impl Size
     ) -> Self {
+        let width = size.width_unsigned().expect("width to be valid");
+        let height = size.height_unsigned().expect("height to be valid");
+
         Self {
-            dims: Vec2::from_size(size).map_err(|err| err.to_string())
-                .expect("too big of a dimension for a canvas"),
-            text: Array2D::filled_with(chr, size.width(), size.height()),
-            foreground: Array2D::filled_with(foreground.into(), size.width(), size.height()),
-            background: Array2D::filled_with(background.into(), size.width(), size.height()),
+            dims: Vec2::from_size(size),
+            text: Array2D::filled_with(chr, width, height),
+            foreground: Array2D::filled_with(foreground.into(), width, height),
+            background: Array2D::filled_with(background.into(), width, height),
         }
     }
 }
 
 impl Size for Basic {
-    fn width(&self) -> usize { self.dims.width() }
-    fn height(&self) -> usize { self.dims.height() }
-}
-
-impl SignedSize for Basic {
-    fn width_signed(&self) -> isize { self.dims.width_signed() }
-    fn height_signed(&self) -> isize { self.dims.height_signed() }
+    fn width(&self) -> isize { self.dims.width() }
+    fn height(&self) -> isize { self.dims.height() }
 }
 
 impl Canvas for Basic {
@@ -577,7 +591,7 @@ impl Canvas for Basic {
 
     fn get(&self, pos: &impl Pos) -> Result<Cell, Error> {
         let pos = Vec2::from_pos(pos);
-        if pos.x > self.dims.width_signed() || pos.y > self.dims.height_signed() {
+        if pos.x > self.dims.width() || pos.y > self.dims.height() {
             return Err(Error::OutOfBounds(pos.x, pos.y));
         }
         let pos = pos.try_into()?;
@@ -590,7 +604,7 @@ impl Canvas for Basic {
     }
 
     fn window_absolute(&mut self, pos: &impl Pos, size: &impl Size) -> Result<Window<Self>, Error> {
-        Window::new(self, pos, size)
+        Ok(Window::new(self, pos, size))
     }
 
     fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
@@ -615,23 +629,18 @@ impl<'a, C: Canvas> Window<'a, C> {
     /// # Errors
     ///
     /// - If the size cannot fit into a Vec2
-    fn new(canvas: &'a mut C, pos: &impl Pos, size: &impl Size) -> Result<Self, Error> {
-        Ok(Window {
+    fn new(canvas: &'a mut C, pos: &impl Pos, size: &impl Size) -> Self {
+        Window {
             canvas,
             offset: Vec2::from_pos(pos),
-            size: Vec2::from_size(size)?,
-        })
+            size: Vec2::from_size(size),
+        }
     }
 }
 
 impl<'a, C: Canvas> Size for Window<'a, C> {
-    fn width(&self) -> usize { self.size.width() }
-    fn height(&self) -> usize { self.size.height() }
-}
-
-impl<'a, C: Canvas> SignedSize for Window<'a, C> {
-    fn width_signed(&self) -> isize { self.size.width_signed() }
-    fn height_signed(&self) -> isize { self.size.height_signed() }
+    fn width(&self) -> isize { self.size.width() }
+    fn height(&self) -> isize { self.size.height() }
 }
 
 impl<'a, C: Canvas> Canvas for Window<'a, C> {
@@ -662,7 +671,7 @@ impl<'a, C: Canvas> Canvas for Window<'a, C> {
     }
 
     fn window_absolute(&mut self, pos: &impl Pos, size: &impl Size) -> Result<Self::Window<'_>, Error> {
-        Window::new(self.canvas, &(Vec2::from_pos(pos) + self.offset), size)
+        Ok(Window::new(self.canvas, &(Vec2::from_pos(pos) + self.offset), size))
     }
 
     fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
@@ -679,13 +688,8 @@ pub struct ErrorCatcher<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> {
 }
 
 impl<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Size for ErrorCatcher<C, F> {
-    fn width(&self) -> usize { self.canvas.width() }
-    fn height(&self) -> usize { self.canvas.height() }
-}
-
-impl<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> SignedSize for ErrorCatcher<C, F> {
-    fn width_signed(&self) -> isize { self.canvas.width_signed() }
-    fn height_signed(&self) -> isize { self.canvas.height_signed() }
+    fn width(&self) -> isize { self.canvas.width() }
+    fn height(&self) -> isize { self.canvas.height() }
 }
 
 impl<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Canvas for ErrorCatcher<C, F> {
@@ -712,7 +716,7 @@ impl<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Canvas for ErrorCatc
     // the window has to specifically wrap around the ErrorCatcher
     // so the throws can be redirected here
     fn window_absolute(&mut self, pos: &impl Pos, size: &impl Size) -> Result<Self::Window<'_>, Error> {
-        Window::new(self, pos, size)
+        Ok(Window::new(self, pos, size))
     }
 
     fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
@@ -771,7 +775,7 @@ impl<'c, C: Canvas<Output = C>> DerefMut for DrawInfo<'c, C> {
 ///     .set(&(1, 1), 'a')
 ///     .text_absolute(&(0, 3), "hello")
 ///         // color the text white
-///         .color(Color::WHITE, None) 
+///         .colored(Color::WHITE, None) 
 ///     .set(&(3, 1), 'b')?;
 ///
 /// // .....
@@ -795,7 +799,7 @@ pub trait DrawResultMethods<C: Canvas<Output = C>> {
     /// # use canvas_tui::prelude::*;
     /// # fn main() -> Result<(), Error> {
     /// let mut canvas = Basic::new(&(5, 3));
-    /// canvas.text(&Just::Centered, "foo").color(Color::WHITE, None)?;
+    /// canvas.text(&Just::Centered, "foo").colored(Color::WHITE, None)?;
     ///
     /// // .....
     /// // .foo.
@@ -809,28 +813,28 @@ pub trait DrawResultMethods<C: Canvas<Output = C>> {
     ///
     /// - If the result is an error
     /// - If there is not enough room for the color (after [`Self::grow_bounds`])
-    fn color(&mut self, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>) -> DrawResult<C>;
+    fn colored(&mut self, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>) -> DrawResult<C>;
     /// Colors the last drawn object with `foreground`
     ///
-    /// See [`Self::color`]
+    /// See [`Self::colored`]
     ///
     /// # Errors
     ///
     /// - If the result is an error
-    /// - If there is not enough room for the color (after [`Self::grow_bounds`])
-    fn fore(&mut self, foreground: impl Into<Option<Color>>) -> DrawResult<C> {
-        self.color(foreground, None)
+    /// - If there is not enough room for the color (when after [`Self::grow_bounds`])
+    fn foreground(&mut self, foreground: impl Into<Option<Color>>) -> DrawResult<C> {
+        self.colored(foreground, None)
     }
     /// Colors the last drawn object with `background`
     ///
-    /// See [`Self::color`]
+    /// See [`Self::colored`]
     ///
     /// # Errors
     ///
     /// - If the result is an error
-    /// - If there is not enough room for the color (after [`Self::grow_bounds`])
-    fn back(&mut self, background: impl Into<Option<Color>>) -> DrawResult<C> {
-        self.color(None, background)
+    /// - If there is not enough room for the color (when after [`Self::grow_bounds`])
+    fn background(&mut self, background: impl Into<Option<Color>>) -> DrawResult<C> {
+        self.colored(None, background)
     }
     /// Expands the stored bounds of the last drawn object, not changing the canvas
     ///
@@ -840,7 +844,7 @@ pub trait DrawResultMethods<C: Canvas<Output = C>> {
     /// # use canvas_tui::prelude::*;
     /// # fn main() -> Result<(), Error> {
     /// let mut canvas = Basic::new(&(7, 3));
-    /// canvas.text(&Just::Centered, "foo").grow_bounds(&(1, 0)).color(Color::WHITE, None)?;
+    /// canvas.text(&Just::Centered, "foo").grow_bounds(&(1, 0)).foreground(Color::WHITE)?;
     ///
     /// // .......
     /// // .-foo-. (color represented by -)
@@ -853,7 +857,7 @@ pub trait DrawResultMethods<C: Canvas<Output = C>> {
     /// # Ok(()) }
     /// ```
     #[must_use]
-    fn grow_bounds(self, size: &impl SignedSize) -> Self;
+    fn grow_bounds(self, size: &impl Size) -> Self;
     /// Ignore the result, especially for when the canvas is using
     /// [`when_error`](Canvas::when_error)
     ///
@@ -878,17 +882,17 @@ pub trait DrawResultMethods<C: Canvas<Output = C>> {
 }
 
 impl<'c, C: Canvas<Output = C>> DrawResultMethods<C> for DrawResult<'c, C> {
-    fn color(&mut self, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>) -> DrawResult<C> {
+    fn colored(&mut self, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>) -> DrawResult<C> {
         match self {
             Ok(info) => info.output.highlight_box(&info.pos, &info.size, foreground, background),
             Err(err) => Err(err.clone()),
         }
     }
 
-    fn grow_bounds(self, size: &impl SignedSize) -> Self {
+    fn grow_bounds(self, size: &impl Size) -> Self {
         match self {
             Ok(mut info) => {
-                let size = Vec2::from_signed_size(size);
+                let size = Vec2::from_size(size);
                 info.pos -= size;
                 info.size += size * 2;
                 Ok(info)
@@ -899,13 +903,8 @@ impl<'c, C: Canvas<Output = C>> DrawResultMethods<C> for DrawResult<'c, C> {
 }
 
 impl<'c, C: Canvas<Output = C>> Size for DrawResult<'c, C> {
-    fn width(&self) -> usize { self.as_ref().expect("asked for the width of an errored canvas").width() }
-    fn height(&self) -> usize { self.as_ref().expect("asked for the height of an errored canvas").height() }
-}
-
-impl<'c, C: Canvas<Output = C>> SignedSize for DrawResult<'c, C> {
-    fn width_signed(&self) -> isize { self.as_ref().expect("asked for the width of an errored canvas").width_signed() }
-    fn height_signed(&self) -> isize { self.as_ref().expect("asked for the height of an errored canvas").height_signed() }
+    fn width(&self) -> isize { self.as_ref().expect("asked for the width of an errored canvas").width() }
+    fn height(&self) -> isize { self.as_ref().expect("asked for the height of an errored canvas").height() }
 }
 
 impl<'c, C: Canvas<Output = C>> Canvas for DrawResult<'c, C> { 

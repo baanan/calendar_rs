@@ -1,6 +1,7 @@
 use justification::Just;
 use num::Vec2;
 use thiserror::Error;
+use yansi::Paint;
 
 pub mod num;
 pub mod canvas;
@@ -15,8 +16,8 @@ pub enum Error {
     OutOfBounds(isize, isize),
     #[error("given {0} {1} is too large to fit in an isize ({}..={})", isize::MIN, isize::MAX)]
     TooLarge(&'static str, usize),
-    #[error("index {0} is negative, expected positive")]
-    NegativeIndex(isize),
+    #[error("{name} {value} is negative, expected positive")]
+    NegativeValue { value: isize, name: &'static str },
     #[error("justification {justification} could not fit object of size {object} in canvas of size {canvas}")]
     JustificationOutOfBounds { canvas: Vec2, object: Vec2, justification: Just },
     #[error("text '{text}' overflew at {ending}. It started at {starting}, but the size of the canvas was only {canvas}")]
@@ -34,5 +35,12 @@ impl From<array2d::Error> for Error {
             ),
             _ => unimplemented!(),
         }
+    }
+}
+
+/// Initializes the library
+pub fn init() {
+    if cfg!(windows) && !Paint::enable_windows_ascii() {
+        Paint::disable();
     }
 }

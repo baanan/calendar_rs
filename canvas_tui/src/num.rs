@@ -17,22 +17,13 @@ impl Vec2 {
     }
 
     /// Creates a Vec2 from a generic [`Size`]
-    ///
-    /// # Errors
-    ///
-    /// - If the size's width or height is too big to fit into an [`isize`]
-    pub fn from_size(size: &impl Size) -> Result<Self, Error> {
-        (size.width(), size.height()).try_into()
+    pub fn from_size(size: &impl Size) -> Self {
+        (size.width(), size.height()).into()
     }
 
     /// Creates a Vec2 from a generic [`Pos`]
     pub fn from_pos(pos: &impl Pos) -> Self {
         Self::new(pos.x(), pos.y())
-    }
-
-    /// Creates a Vec2 from a generic [`SignedSize`]
-    pub fn from_signed_size(size: &impl SignedSize) -> Self {
-        Self::new(size.width_signed(), size.height_signed())
     }
 
     #[must_use]
@@ -77,27 +68,39 @@ pub trait Pos {
     fn y(&self) -> isize;
 }
 
-// PERF: might want to look into fully replacing Size with SignedSize if it's taking too much time
-// to convert
-
 /// Something that represents or has a size
 ///
 /// Most commonly one of:
-/// - `(usize, usize)` (for constant sizes)
+/// - `(isize, isize)` (for constant sizes)
 /// - [`Vec2`] (for variable sizes)
 /// - [`Canvas`](crate::prelude::Canvas)
 pub trait Size {
-    fn width(&self) -> usize;
-    fn height(&self) -> usize;
+    fn width(&self) -> isize;
+    fn height(&self) -> isize;
+
+    /// # Errors
+    ///
+    /// - If the width is negative
+    fn width_unsigned(&self) -> Result<usize, Error> {
+        self.width()
+            .try_into().map_err(|_| Error::NegativeValue {
+                value: self.width(),
+                name: "width"
+            })
+    }
+
+    /// # Errors
+    ///
+    /// - If the height is negative
+    fn height_unsigned(&self) -> Result<usize, Error> {
+        self.height()
+            .try_into().map_err(|_| Error::NegativeValue {
+                value: self.height(),
+                name: "height"
+            })
+    }
 }
 
-/// Something that has a size, but signed 
-///
-/// It's often useful when passing around [`Vec2`]s
-pub trait SignedSize {
-    fn width_signed(&self) -> isize;
-    fn height_signed(&self) -> isize;
-}
 
 impl Pos for Vec2 {
     fn x(&self) -> isize { self.x }
@@ -105,13 +108,8 @@ impl Pos for Vec2 {
 }
 
 impl Size for Vec2 {
-    fn width(&self) -> usize { self.x.try_into().expect("width given is negative, expected positive") }
-    fn height(&self) -> usize { self.y.try_into().expect("height given is negative, expected positive") }
-}
-
-impl SignedSize for Vec2 {
-    fn width_signed(&self) -> isize { self.x }
-    fn height_signed(&self) -> isize { self.y }
+    fn width(&self) -> isize { self.x }
+    fn height(&self) -> isize { self.y }
 }
 
 
@@ -147,8 +145,8 @@ impl TryFrom<Vec2> for (usize, usize) {
     type Error = crate::Error;
     fn try_from(value: Vec2) -> Result<Self, Self::Error> {
         let Vec2 { x, y } = value;
-        let x: usize = x.try_into().map_err(|_| Self::Error::NegativeIndex(x))?;
-        let y: usize = y.try_into().map_err(|_| Self::Error::NegativeIndex(y))?;
+        let x: usize = x.try_into().map_err(|_| Self::Error::NegativeValue { value: x, name: "index" })?;
+        let y: usize = y.try_into().map_err(|_| Self::Error::NegativeValue { value: y, name: "index" })?;
         Ok((x, y))
     }
 }
@@ -176,13 +174,16 @@ impl Pos for (isize, isize) {
 }
 
 impl Size for (usize, usize) {
-    fn width(&self) -> usize { self.0 }
-    fn height(&self) -> usize { self.1 }
-}
+    fn width(&self) -> isize {
+        self.0.try_into().expect("width was too big to fit into an isize")
+    }
 
-impl SignedSize for (isize, isize) {
-    fn width_signed(&self) -> isize { self.0 }
-    fn height_signed(&self) -> isize { self.1 }
+    fn height(&self) -> isize {
+        self.1.try_into().expect("height was too big to fit into an isize")
+    }
+
+    fn width_unsigned(&self) -> Result<usize, Error> { Ok(self.0) }
+    fn height_unsigned(&self) -> Result<usize, Error> { Ok(self.1) }
 }
 
 

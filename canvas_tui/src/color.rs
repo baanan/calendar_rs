@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color {
     pub r: u8,
@@ -17,5 +19,18 @@ impl Color {
     #[must_use]
     pub const fn grayscale(val: u8) -> Self {
         Self::new(val, val, val)
+    }
+
+    pub fn paint<T: Display>(item: T, foreground: Option<Self>, background: Option<Self>) -> impl Display {
+        let mut style = yansi::Paint::new(item);
+        if let Some(foreground) = foreground { style = style.fg(foreground.into()); }
+        if let Some(background) = background { style = style.bg(background.into()); }
+        style
+    }
+}
+
+impl From<Color> for yansi::Color {
+    fn from(value: Color) -> Self {
+        Self::RGB(value.r, value.g, value.b)
     }
 }
