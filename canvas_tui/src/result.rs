@@ -52,7 +52,7 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DerefMut for DrawInfo<'c, C, S> {
 /// The result of a draw onto a canvas, holding the current canvas as well as some extra info from
 /// the last drawn object
 ///
-/// This implements [`Canvas`], forwarding the instructions to the canvas or propagating the error if it exists
+/// This also implements [`Canvas`], forwarding the instructions to the canvas or propagating the error if it exists
 ///
 /// Also see [`DrawResultMethods`]
 ///
@@ -87,6 +87,11 @@ pub type DrawResult<'c, C, S> = Result<DrawInfo<'c, C, S>, Error>;
 /// Extra methods that can be run on a [`DrawResult`]
 pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// Colors the last drawn object with `foreground` and `background`
+    ///
+    /// # Errors
+    ///
+    /// - If the result is an error
+    /// - If there is not enough room for the color (after [`Self::grow_profile`])
     /// 
     /// # Example
     ///
@@ -103,11 +108,6 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// assert_eq!(canvas.get(&(2, 0))?.foreground, None);
     /// # Ok(()) }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// - If the result is an error
-    /// - If there is not enough room for the color (after [`Self::grow_profile`])
     fn colored(
         self,
         foreground: impl Into<Option<Color>>,
@@ -135,73 +135,29 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     fn background(self, background: impl Into<Option<Color>>) -> DrawResult<'c, C, S> {
         self.colored(None, background)
     }
-    /// Expands the stored profile of the last drawn object, not changing the canvas
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use canvas_tui::prelude::*;
-    /// # fn main() -> Result<(), Error> {
-    /// let mut canvas = Basic::new(&(7, 3));
-    /// canvas.text(&Just::Centered, "foo").grow_profile(&(1, 0)).foreground(Color::WHITE)?;
-    ///
-    /// // .......
-    /// // .-foo-. (color represented by -)
-    /// // .......
-    /// assert_eq!(canvas.get(&(0, 1))?.foreground, None);
-    /// assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Color::WHITE));
-    /// assert_eq!(canvas.get(&(3, 1))?.foreground, Some(Color::WHITE));
-    /// assert_eq!(canvas.get(&(5, 1))?.foreground, Some(Color::WHITE));
-    /// assert_eq!(canvas.get(&(6, 1))?.foreground, None);
-    /// # Ok(()) }
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// - If the result is an error
-    fn grow_profile(self, size: &impl Size) -> DrawResult<'c, C, S::Grown>;
-    /// Gets the profile of the inside of the last drawn object by shrinking the bounds by 1
-    ///
-    /// Equivalent to [`Self::grow_bounds(&(-1, -1))`]
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use canvas_tui::prelude::*;
-    /// # fn main() -> Result<(), Error> {
-    /// let mut canvas = Basic::filled_with_text(&(5, 5), '.');
-    ///
-    /// canvas.rect(&Just::Centered, &(3, 3), &box_chars::LIGHT)
-    ///     .inside().filled(' ');
-    ///
-    /// // .....
-    /// // .┌─┐.
-    /// // .│ │.
-    /// // .└─┘.
-    /// // .....
-    /// assert_eq!(canvas.get(&(2, 0))?.text, '.');
-    /// assert_eq!(canvas.get(&(2, 1))?.text, '─');
-    /// assert_eq!(canvas.get(&(2, 2))?.text, ' ');
-    /// # Ok(()) }
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// - If the result is an error
-    fn inside(self) -> DrawResult<'c, C, S::Grown>;
     /// Fills the profile with `chr`
+    ///
+    /// # Errors
+    ///
+    /// - If the result is an error
     ///
     /// # Example
     ///
     /// See [`Self::inside`]
+    fn filled_with(self, chr: char) -> DrawResult<'c, C, S>;
+    /// Fills the inside of the last drawn object with `chr`
+    ///
+    /// Equivalent to [`result`](Self)[`.inside()`](Self::inside)[`.filled_with(chr)`](Self::filled_with)
+    ///
+    /// **Note:** The profile returned is the same as before the method was called
     ///
     /// # Errors
     ///
     /// - If the result is an error
-    fn filled(self, chr: char) -> DrawResult<'c, C, S>;
-    /// Fills the inside of the last drawn object with `chr`
     ///
-    /// Equivalent to [`Self::grow_bounds(&(-1, -1))`]
+    /// # Returns
+    ///
+    /// The result of the draw call
     ///
     /// # Example
     ///
@@ -223,15 +179,100 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// assert_eq!(canvas.get(&(2, 2))?.text, ' ');
     /// # Ok(()) }
     /// ```
+    fn fill_inside(self, chr: char) -> DrawResult<'c, C, <S::Grown as DrawnShape>::Grown>;
+    /// Expands the stored profile of the last drawn object, not changing the canvas
     ///
     /// # Errors
     ///
     /// - If the result is an error
     ///
-    /// # Returns
+    /// # Example
     ///
-    /// The result of the draw call
-    fn fill_inside(self, chr: char) -> DrawResult<'c, C, S::Grown>;
+    /// ```
+    /// # use canvas_tui::prelude::*;
+    /// # fn main() -> Result<(), Error> {
+    /// let mut canvas = Basic::new(&(7, 3));
+    /// canvas.text(&Just::Centered, "foo").grow_profile(&(1, 0)).foreground(Color::WHITE)?;
+    ///
+    /// // .......
+    /// // .-foo-. (color represented by -)
+    /// // .......
+    /// assert_eq!(canvas.get(&(0, 1))?.foreground, None);
+    /// assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Color::WHITE));
+    /// assert_eq!(canvas.get(&(3, 1))?.foreground, Some(Color::WHITE));
+    /// assert_eq!(canvas.get(&(5, 1))?.foreground, Some(Color::WHITE));
+    /// assert_eq!(canvas.get(&(6, 1))?.foreground, None);
+    /// # Ok(()) }
+    /// ```
+    fn grow_profile(self, size: &impl Size) -> DrawResult<'c, C, S::Grown>;
+    /// Gets the profile of the inside of the last drawn object by shrinking the bounds by 1
+    ///
+    /// Equivalent to [`result`](Self)[`.grow_bounds(&(-1, -1))`](Self::grow_profile)
+    ///
+    /// # Errors
+    ///
+    /// - If the result is an error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use canvas_tui::prelude::*;
+    /// # fn main() -> Result<(), Error> {
+    /// let mut canvas = Basic::filled_with_text(&(5, 5), '.');
+    ///
+    /// canvas.rect(&Just::Centered, &(3, 3), &box_chars::LIGHT)
+    ///     .inside().filled_with(' ');
+    ///
+    /// // .....
+    /// // .┌─┐.
+    /// // .│ │.
+    /// // .└─┘.
+    /// // .....
+    /// assert_eq!(canvas.get(&(2, 0))?.text, '.');
+    /// assert_eq!(canvas.get(&(2, 1))?.text, '─');
+    /// assert_eq!(canvas.get(&(2, 2))?.text, ' ');
+    /// # Ok(()) }
+    /// ```
+    fn inside(self) -> DrawResult<'c, C, S::Grown>;
+    /// Uses `drawer` to draw on the inside of the profile
+    ///
+    /// For [`Single`] and [`Rect`], the drawer is just given a window into the profile. 
+    /// For [`Grid`], the drawer is run on each cell and as such takes in a cell position and the window.
+    /// See [`DrawnShape::draw`] for more information
+    ///
+    /// **Note:** The profile returned is the same as before the method was called
+    ///
+    /// # Errors
+    ///
+    /// - If the result is already an error
+    /// - If the drawer returns an error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use canvas_tui::prelude::*;
+    /// # fn main() -> Result<(), Error> {
+    /// let mut canvas = Basic::new(&(9, 7));
+    ///
+    /// canvas.grid(&Just::Centered, &(2, 1), &(2, 2), &box_chars::LIGHT)
+    ///     .draw_inside(Box::new(|mut canvas, cell| {
+    ///         canvas.text(&Just::Centered, &format!("{}{}", cell.x, cell.y))?; 
+    ///         Ok(())
+    ///     }))?;
+    ///
+    /// // .........
+    /// // .┌──┬──┐.
+    /// // .│00│10│.
+    /// // .├──┼──┤.
+    /// // .│01│11│.
+    /// // .└──┴──┘.
+    /// // .........
+    /// assert_eq!(canvas.get(&(2, 2))?.text, '0');
+    /// assert_eq!(canvas.get(&(3, 2))?.text, '0');
+    /// assert_eq!(canvas.get(&(5, 2))?.text, '1');
+    /// # Ok(()) }
+    /// ```
+    fn draw_inside(self, drawer: <S::Grown as DrawnShape>::Drawer<C>) -> DrawResult<'c, C, <S::Grown as DrawnShape>::Grown>;
     /// Ignore the result, especially for when the canvas is using
     /// [`when_error`](Canvas::when_error)
     ///
@@ -252,42 +293,6 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// # Ok(()) }
     /// ```
     fn discard_result(&self) {}
-    /// Uses `drawer` to draw on the inside of the last drawn object
-    ///
-    /// See [`DrawnShape::draw`] for more information
-    ///
-    /// # Errors
-    ///
-    /// - If the result is already an error
-    /// - If the drawer returns an error
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use canvas_tui::prelude::*;
-    /// # fn main() -> Result<(), Error> {
-    /// let mut canvas = Basic::new(&(9, 7));
-    ///
-    /// canvas
-    ///     .grid_absolute(&(1, 1), &(2, 1), &(2, 2), &box_chars::LIGHT)
-    ///         .draw_inside(Box::new(|mut canvas, cell| {
-    ///             canvas.text(&Just::Centered, &format!("{}{}", cell.x, cell.y))?; 
-    ///             Ok(())
-    ///         }))?;
-    ///
-    /// // .........
-    /// // .┌──┬──┐.
-    /// // .│00│10│.
-    /// // .├──┼──┤.
-    /// // .│01│11│.
-    /// // .└──┴──┘.
-    /// // .........
-    /// assert_eq!(canvas.get(&(2, 2))?.text, '0');
-    /// assert_eq!(canvas.get(&(3, 2))?.text, '0');
-    /// assert_eq!(canvas.get(&(5, 2))?.text, '1');
-    /// # Ok(()) }
-    /// ```
-    fn draw_inside(self, drawer: <S::Grown as DrawnShape>::Drawer<C>) -> DrawResult<'c, C, S::Grown>;
 }
 
 impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for DrawResult<'c, C, S> {
@@ -313,21 +318,21 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for D
         })
     }
 
-    fn filled(self, chr: char) -> DrawResult<'c, C, S> {
+    fn filled_with(self, chr: char) -> DrawResult<'c, C, S> {
         self.and_then(|DrawInfo { output, shape }|
             shape.fill(output, chr)
         )
     }
 
-    fn fill_inside(self, chr: char) -> DrawResult<'c, C, S::Grown> {
+    fn fill_inside(self, chr: char) -> DrawResult<'c, C, <S::Grown as DrawnShape>::Grown> {
         self.and_then(|DrawInfo { output, shape }|
-            shape.grow(&(-1, -1)).fill(output, chr)
+            shape.grow(&(-1, -1)).fill(output, chr).grow_profile(&(1, 1))
         )
     }
 
-    fn draw_inside(self, drawer: <S::Grown as DrawnShape>::Drawer<C>) -> DrawResult<'c, C, S::Grown> {
+    fn draw_inside(self, drawer: <S::Grown as DrawnShape>::Drawer<C>) -> DrawResult<'c, C, <S::Grown as DrawnShape>::Grown> {
         self.inside().and_then(|DrawInfo { output, shape }|
-            shape.draw(output, drawer)
+            shape.draw(output, drawer).grow_profile(&(1, 1))
         )
     }
 }

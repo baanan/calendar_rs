@@ -27,8 +27,8 @@ pub trait DrawnShape: Sized {
     fn fill<C: Canvas<Output = C>>(self, canvas: &mut C, chr: char) -> DrawResult<C, Self>;
     /// Uses `drawer` to draw onto the `canvas` within this shape
     ///
-    /// For [`Single`] and [`Rect`], the drawer takes in a window. 
-    /// For [`Grid`], the drawer is run on each cell and as such takes in a cell position and its window.
+    /// For [`Single`] and [`Rect`], the drawer is just given a window into the profile. 
+    /// For [`Grid`], the drawer is run on each cell and as such takes in a cell position and the window.
     /// All drawers return a `Result<(), Error>`, which gets propagated out
     ///
     /// # Errors

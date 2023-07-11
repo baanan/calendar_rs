@@ -461,6 +461,8 @@ pub trait Canvas : Size + Sized {
     }
     /// Draws a box onto the canvas using `justification` with size `size`
     ///
+    /// See `DrawResultMethods::draw_inside` to draw on the inside of the rect
+    ///
     /// # Errors
     ///
     /// - If there isn't enough space
@@ -488,6 +490,8 @@ pub trait Canvas : Size + Sized {
         self.rect_absolute(&pos, size, chars)
     }
     /// Draws a box onto the canvas at `pos` with size `size`
+    ///
+    /// See `DrawResultMethods::draw_inside` to draw on the inside of the rect
     ///
     /// # Errors
     ///
@@ -543,6 +547,8 @@ pub trait Canvas : Size + Sized {
     /// Draws a box onto the canvas with justification `just`, grid dimensions `dims`, cell size
     /// `cell_size`, and using box chars `chars` 
     ///
+    /// See `DrawResultMethods::draw_inside` to draw on the inside of the grid
+    ///
     /// # Errors
     ///
     /// - If there isn't enough space
@@ -583,6 +589,8 @@ pub trait Canvas : Size + Sized {
     }
     /// Draws a box onto the canvas starting at `pos` with grid dimensions `dims`, cell size
     /// `cell_size`, and using box chars `chars` 
+    ///
+    /// See `DrawResultMethods::draw_inside` to draw on the inside of the grid
     ///
     /// # Errors
     ///
