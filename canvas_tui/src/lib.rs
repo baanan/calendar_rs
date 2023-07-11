@@ -9,6 +9,8 @@ pub mod color;
 pub mod justification;
 pub mod prelude;
 pub mod text;
+pub mod shapes;
+pub mod result;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {

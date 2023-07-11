@@ -1,4 +1,6 @@
-use std::{ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign}, fmt::Display};
+use std::{ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign, Range}, fmt::Display, iter::Map};
+
+use itertools::{Product, iproduct};
 
 use crate::Error;
 
@@ -102,6 +104,16 @@ pub trait Size {
 }
 
 
+impl IntoIterator for Vec2 {
+    type Item = Self;
+    type IntoIter = Map<Product<Range<isize>, Range<isize>>, fn((isize, isize)) -> Self>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        iproduct!(0..self.width(), 0..self.height()).map(|(x, y)| Self::new(x, y))
+    }
+}
+
+
 impl Pos for Vec2 {
     fn x(&self) -> isize { self.x }
     fn y(&self) -> isize { self.y }
@@ -173,17 +185,22 @@ impl Pos for (isize, isize) {
     fn y(&self) -> isize { self.1 }
 }
 
-impl Size for (usize, usize) {
-    fn width(&self) -> isize {
-        self.0.try_into().expect("width was too big to fit into an isize")
-    }
+// impl Size for (usize, usize) {
+//     fn width(&self) -> isize {
+//         self.0.try_into().expect("width was too big to fit into an isize")
+//     }
 
-    fn height(&self) -> isize {
-        self.1.try_into().expect("height was too big to fit into an isize")
-    }
+//     fn height(&self) -> isize {
+//         self.1.try_into().expect("height was too big to fit into an isize")
+//     }
 
-    fn width_unsigned(&self) -> Result<usize, Error> { Ok(self.0) }
-    fn height_unsigned(&self) -> Result<usize, Error> { Ok(self.1) }
+//     fn width_unsigned(&self) -> Result<usize, Error> { Ok(self.0) }
+//     fn height_unsigned(&self) -> Result<usize, Error> { Ok(self.1) }
+// }
+
+impl Size for (isize, isize) {
+    fn width(&self) -> isize { self.0 }
+    fn height(&self) -> isize { self.1 }
 }
 
 
