@@ -3,6 +3,7 @@ use super::num::{Size, Vec2};
 
 pub trait DrawnShape: Sized {
     type Grown: DrawnShape;
+    type Drawer<C: Canvas<Output = C>>;
     /// Grows the shape by `size`
     fn grow(&self, size: &impl Size) -> Self::Grown;
     /// Colors a `canvas` using this shape
@@ -24,6 +25,18 @@ pub trait DrawnShape: Sized {
     /// - If the shape does not fit on the canvas
     /// - If the filling has an error, see [`Canvas::set`] or [`Canvas::fill_box`]
     fn fill<C: Canvas<Output = C>>(self, canvas: &mut C, chr: char) -> DrawResult<C, Self>;
+    /// Uses `drawer` to draw onto the `canvas` within this shape
+    ///
+    /// For [`Single`] and [`Rect`], the drawer takes in a window. 
+    /// For [`Grid`], the drawer is run on each cell and as such takes in a cell position and its window.
+    /// All drawers return a `Result<(), Error>`, which gets propagated out
+    ///
+    /// # Errors
+    ///
+    /// - If the shape does not fit on the canvas
+    ///     - If a window cannot be made
+    /// - If one of the drawers returns an error
+    fn draw<C: Canvas<Output = C>>(self, canvas: &mut C, drawer: Self::Drawer<C>) -> DrawResult<C, Self>;
 }
 
 #[derive(Debug)]
@@ -33,6 +46,7 @@ pub struct Single {
 
 impl DrawnShape for Single {
     type Grown = Rect;
+    type Drawer<C: Canvas<Output = C>> = Box<dyn FnOnce(C::Window<'_>) -> Result<(), Error>>;
 
     fn grow(&self, by: &impl Size) -> Self::Grown {
         let by = Vec2::from_size(by);
@@ -51,6 +65,11 @@ impl DrawnShape for Single {
     fn fill<C: Canvas<Output = C>>(self, canvas: &mut C, chr: char) -> DrawResult<C, Self> {
         canvas.set(&self.pos, chr)
     }
+
+    fn draw<C: Canvas<Output = C>>(self, canvas: &mut C, drawer: Self::Drawer<C>) -> DrawResult<C, Self> {
+        let window = canvas.window_absolute(&self.pos, &(1, 1));
+        window.and_then(drawer).map(|_| DrawInfo::new(canvas, self))
+    }
 }
 
 #[derive(Debug)]
@@ -61,6 +80,7 @@ pub struct Rect {
 
 impl DrawnShape for Rect {
     type Grown = Self;
+    type Drawer<C: Canvas<Output = C>> = Box<dyn FnOnce(C::Window<'_>) -> Result<(), Error>>;
     
     fn grow(&self, by: &impl Size) -> Self::Grown {
         let by = Vec2::from_size(by);
@@ -79,6 +99,11 @@ impl DrawnShape for Rect {
     fn fill<C: Canvas<Output = C>>(self, canvas: &mut C, chr: char) -> DrawResult<C, Self> {
         canvas.fill_box(&self.pos, &self.size, chr)
     }
+
+    fn draw<C: Canvas<Output = C>>(self, canvas: &mut C, drawer: Self::Drawer<C>) -> DrawResult<C, Self> {
+        let window = canvas.window_absolute(&self.pos, &self.size);
+        window.and_then(drawer).map(|_| DrawInfo::new(canvas, self))
+    }
 }
 
 #[derive(Debug)]
@@ -91,6 +116,7 @@ pub struct Grid {
 
 impl DrawnShape for Grid {
     type Grown = Self;
+    type Drawer<C: Canvas<Output = C>> = Box<dyn Fn(C::Window<'_>, Vec2) -> Result<(), Error>>;
 
     fn grow(&self, size: &impl Size) -> Self::Grown {
         let size = Vec2::from_size(size);
@@ -133,6 +159,16 @@ impl DrawnShape for Grid {
             canvas.highlight_box(&pos, &self.cell_size, foreground, background)?;
         }
 
+        Ok(DrawInfo::new(canvas, self))
+    }
+
+    fn draw<C: Canvas<Output = C>>(self, canvas: &mut C, drawer: Self::Drawer<C>) -> DrawResult<C, Self> {
+        let full_spacing = self.cell_size + self.spacing;
+        for cell in self.dims {
+            let pos = self.pos + cell * full_spacing + self.spacing;
+            let window = canvas.window_absolute(&pos, &self.cell_size);
+            window.and_then(|window| drawer(window, cell))?;
+        }
         Ok(DrawInfo::new(canvas, self))
     }
 }

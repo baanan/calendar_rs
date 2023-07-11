@@ -81,6 +81,7 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DerefMut for DrawInfo<'c, C, S> {
 /// assert_eq!(canvas.get(&(3, 3))?.foreground, Some(Color::WHITE));
 /// # Ok(()) }
 /// ```
+#[allow(clippy::module_name_repetitions)]
 pub type DrawResult<'c, C, S> = Result<DrawInfo<'c, C, S>, Error>;
 
 /// Extra methods that can be run on a [`DrawResult`]
@@ -239,7 +240,6 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// ```
     /// # use canvas_tui::prelude::*;
     /// # fn main() -> Result<(), Error> {
-    /// #
     /// let mut canvas = Basic::new(&(5, 5));
     ///
     /// canvas
@@ -252,6 +252,42 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// # Ok(()) }
     /// ```
     fn discard_result(&self) {}
+    /// Uses `drawer` to draw on the inside of the last drawn object
+    ///
+    /// See [`DrawnShape::draw`] for more information
+    ///
+    /// # Errors
+    ///
+    /// - If the result is already an error
+    /// - If the drawer returns an error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use canvas_tui::prelude::*;
+    /// # fn main() -> Result<(), Error> {
+    /// let mut canvas = Basic::new(&(9, 7));
+    ///
+    /// canvas
+    ///     .grid_absolute(&(1, 1), &(2, 1), &(2, 2), &box_chars::LIGHT)
+    ///         .draw_inside(Box::new(|mut canvas, cell| {
+    ///             canvas.text(&Just::Centered, &format!("{}{}", cell.x, cell.y))?; 
+    ///             Ok(())
+    ///         }))?;
+    ///
+    /// // .........
+    /// // .┌──┬──┐.
+    /// // .│00│10│.
+    /// // .├──┼──┤.
+    /// // .│01│11│.
+    /// // .└──┴──┘.
+    /// // .........
+    /// assert_eq!(canvas.get(&(2, 2))?.text, '0');
+    /// assert_eq!(canvas.get(&(3, 2))?.text, '0');
+    /// assert_eq!(canvas.get(&(5, 2))?.text, '1');
+    /// # Ok(()) }
+    /// ```
+    fn draw_inside(self, drawer: <S::Grown as DrawnShape>::Drawer<C>) -> DrawResult<'c, C, S::Grown>;
 }
 
 impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for DrawResult<'c, C, S> {
@@ -286,6 +322,12 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for D
     fn fill_inside(self, chr: char) -> DrawResult<'c, C, S::Grown> {
         self.and_then(|DrawInfo { output, shape }|
             shape.grow(&(-1, -1)).fill(output, chr)
+        )
+    }
+
+    fn draw_inside(self, drawer: <S::Grown as DrawnShape>::Drawer<C>) -> DrawResult<'c, C, S::Grown> {
+        self.inside().and_then(|DrawInfo { output, shape }|
+            shape.draw(output, drawer)
         )
     }
 }

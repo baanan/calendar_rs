@@ -28,8 +28,11 @@ fn main() {
 
     canvas
         .grid_absolute(&(1, 1), &(2, 1), &(2, 2), &box_chars::LIGHT)
-            // .inside().filled(' ')
-            // .grow_profile(&(1, 0)).colored(highlight_text, rosewater)
+            .draw_inside(Box::new(|mut canvas, cell| {
+                canvas.text(&Just::Centered, &format!("{}{}", cell.x, cell.y))?; 
+                Ok(())
+            }))
+            .grow_profile(&(1, 0)).colored(highlight_text, rosewater)
         .discard_result();
 
     let _ = canvas.print();
