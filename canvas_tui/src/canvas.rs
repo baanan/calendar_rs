@@ -5,19 +5,6 @@ use array2d::Array2D;
 use itertools::iproduct;
 use crate::Error;
 
-// some kind of box module with constant box char arrays
-// canvas.rect(&Just::Centered, &(5, 5), box::light)
-//
-// .stroke(fore, back) and .fill(fore, back)
-// stroke change set, fill change shapes
-//
-// crazy idea
-// canvas.text(..).color(..)
-// some kind of CanvasResult struct that holds some info
-// about the previous draw, but derefs to a result
-//
-// DrawResult<C, Grid>::for_each_cell
-
 #[allow(clippy::missing_const_for_fn)]
 fn discard_reference<T>(_: T) {}
 
@@ -303,7 +290,7 @@ pub trait Canvas : Size + Sized {
         self.error()?;
         let size = Vec2::from_size(self);
         for pos in iproduct!(0..size.width(), 0..size.height()) {
-            catch!(self.set(&pos, chr));
+            self.set(&pos, chr)?;
         }
         Ok(DrawInfo::rect(self.unwrap_base_canvas(), Vec2::ZERO, size))
     }
@@ -348,7 +335,7 @@ pub trait Canvas : Size + Sized {
 
         for offset in iproduct!(0..size.width(), 0..size.height()) {
             let coord = pos + Vec2::from(offset);
-            catch!(self.highlight(&coord, foreground, background));
+            self.highlight(&coord, foreground, background)?;
         }
 
         Ok(DrawInfo::rect(self.unwrap_base_canvas(), pos, size))
@@ -389,7 +376,7 @@ pub trait Canvas : Size + Sized {
 
         for offset in iproduct!(0..size.width(), 0..size.height()) {
             let coord = pos + Vec2::from(offset);
-            catch!(self.set(&coord, chr));
+            self.set(&coord, chr)?;
         }
 
         Ok(DrawInfo::rect(self.unwrap_base_canvas(), pos, size))
@@ -527,20 +514,20 @@ pub trait Canvas : Size + Sized {
         let right = size.width() - 1;
 
         for x in (left + 1)..right {
-            catch!(self.set(&(pos + (x, top)), chars.horizontal()));
-            catch!(self.set(&(pos + (x, bottom)), chars.horizontal()));
+            self.set(&(pos + (x, top)), chars.horizontal())?;
+            self.set(&(pos + (x, bottom)), chars.horizontal())?;
         }
 
         for y in (top + 1)..bottom {
-            catch!(self.set(&(pos + (left, y)), chars.vertical()));
-            catch!(self.set(&(pos + (right, y)), chars.vertical()));
+            self.set(&(pos + (left, y)), chars.vertical())?;
+            self.set(&(pos + (right, y)), chars.vertical())?;
         }
 
-        // set corners                                    udlr
-        catch!(self.set(&(pos + (left, top)),     chars[0b0101]));
-        catch!(self.set(&(pos + (right, top)),    chars[0b0110]));
-        catch!(self.set(&(pos + (left, bottom)),  chars[0b1001]));
-        catch!(self.set(&(pos + (right, bottom)), chars[0b1010]));
+        // set corners                             udlr
+        self.set(&(pos + (left, top)),     chars[0b0101])?;
+        self.set(&(pos + (right, top)),    chars[0b0110])?;
+        self.set(&(pos + (left, bottom)),  chars[0b1001])?;
+        self.set(&(pos + (right, bottom)), chars[0b1010])?;
 
         Ok(DrawInfo::rect(self.unwrap_base_canvas(), pos, size))
     }
@@ -643,33 +630,37 @@ pub trait Canvas : Size + Sized {
         // middle horizontal lines
         for horizontal in 1..dims.y {
             let y = horizontal * (cell_size.y + 1);
-            catch!(self.set(&(pos + (left, y)), chars[0b1101]));
-            catch!(self.set(&(pos + (right, y)), chars[0b1110]));
+            self.set(&(pos + (left, y)), chars[0b1101])?;
+            self.set(&(pos + (right, y)), chars[0b1110])?;
             for x in (left + 1)..right {
-                catch!(self.set(&(pos + (x, y)), chars.horizontal()));
+                self.set(&(pos + (x, y)), chars.horizontal())?;
             }
         }
 
         // middle vertical lines
         for vertical in 1..dims.x {
             let x = vertical * (cell_size.x + 1);
-            catch!(self.set(&(pos + (x, top)), chars[0b0111]));
-            catch!(self.set(&(pos + (x, bottom)), chars[0b1011]));
+            self.set(&(pos + (x, top)), chars[0b0111])?;
+            self.set(&(pos + (x, bottom)), chars[0b1011])?;
             for y in (top + 1)..bottom {
-                catch!(self.set(&(pos + (x, y)), chars.vertical()));
+                self.set(&(pos + (x, y)), chars.vertical())?;
             }
         }
 
         // intersections
         for intersection in dims - 1 {
             let pos = pos + (intersection + 1) * (cell_size + 1);
-            catch!(self.set(&pos, chars[0b1111]));
+            self.set(&pos, chars[0b1111])?;
         }
 
         // the grid returned fills up the entire grid including the outlines
         // so there's some overlap
         Ok(DrawInfo::grid(self.unwrap_base_canvas(), pos + 1, dims, cell_size + 2, Vec2::new(-1, -1)))
     }
+    // fn draw<F: FnOnce(&mut Self::Output) -> DrawResult<Self::Output, Rect>>(&mut self, func: F) -> DrawResult<Self::Output, Rect> {
+    //     self.error()?;
+    //     func(self.unwrap_base_canvas())
+    // }
     /// Gets the underlying canvas
     ///
     /// **Note:** This is guaranteed not to panic if calling [`Self::error`] returns [`Ok`]

@@ -20,7 +20,7 @@ fn main() {
     //         .colored(highlight_text, rosewater)
     //     .discard_result();
 
-    let mut canvas = Basic::filled_with_text(&(9, 7), '.')
+    let mut canvas = Basic::filled_with_text(&(9, 7), '·')
         .when_error(|canvas, _| {
             canvas.fill('x')?;
             Ok(())
