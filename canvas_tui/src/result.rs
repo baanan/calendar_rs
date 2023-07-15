@@ -379,11 +379,12 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> Canvas for DrawResult<'c, C, S> {
         }
     }
 
-    #[allow(clippy::unwrap_used)]
-    fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self.as_mut().unwrap() }
     fn error(&self) -> Result<(), Error> { self.as_ref().map(|_| ()).map_err(Clone::clone) }
     fn throw(&mut self, err: &Error) {
         if let Ok(canvas) = self { canvas.throw(err) }
+    }
+    fn base_canvas(&mut self) -> Result<&mut Self::Output, Error> {
+        self.as_mut().map(|info| info.deref_mut()).map_err(|err| err.clone())
     }
 }
 

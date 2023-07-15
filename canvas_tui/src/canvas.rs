@@ -112,13 +112,14 @@ pub trait Canvas : Size + Sized {
     /// # Ok(()) }
     /// ```
     fn set(&mut self, pos: &impl Pos, chr: char) -> DrawResult<Self::Output, Single> {
+        let canvas = self.base_canvas()?;
         let pos = Vec2::from_pos(pos);
-        let res = self.set_without_catch(pos, chr);
+        let res = canvas.set_without_catch(pos, chr);
         // this little dance is needed to make sure there isn't multiple mutable borrows between
         // the result and the throw
-        if let Err(err) = res { self.throw(&err); Err(err) }
+        if let Err(err) = res { canvas.throw(&err); Err(err) }
         // this unwrap is fine because the error is already checked
-        else { Ok(DrawInfo::single(self.unwrap_base_canvas(), pos)) }
+        else { Ok(DrawInfo::single(canvas, pos)) }
     }
     /// Highlights `pos` with `foreground` and `background`, if they are given
     ///
@@ -145,11 +146,12 @@ pub trait Canvas : Size + Sized {
         foreground: impl Into<Option<Color>>,
         background: impl Into<Option<Color>>
     ) -> DrawResult<Self::Output, Single> {
+        let canvas = self.base_canvas()?;
         // see set
         let pos = Vec2::from_pos(pos);
-        let res = self.highlight_without_catch(pos, foreground.into(), background.into());
-        if let Err(err) = res { self.throw(&err); Err(err) }
-        else { Ok(DrawInfo::single(self.unwrap_base_canvas(), pos)) }
+        let res = canvas.highlight_without_catch(pos, foreground.into(), background.into());
+        if let Err(err) = res { canvas.throw(&err); Err(err) }
+        else { Ok(DrawInfo::single(canvas, pos)) }
     }
     /// Gets the character and highlight at `pos`
     ///
@@ -287,12 +289,12 @@ pub trait Canvas : Size + Sized {
     ///
     /// - If the canvas has an outstading error (see [`DrawResult`])
     fn fill(&mut self, chr: char) -> DrawResult<Self::Output, Rect> {
-        self.error()?;
-        let size = Vec2::from_size(self);
+        let canvas = self.base_canvas()?;
+        let size = Vec2::from_size(canvas);
         for pos in iproduct!(0..size.width(), 0..size.height()) {
-            self.set(&pos, chr)?;
+            canvas.set(&pos, chr)?;
         }
-        Ok(DrawInfo::rect(self.unwrap_base_canvas(), Vec2::ZERO, size))
+        Ok(DrawInfo::rect(canvas, Vec2::ZERO, size))
     }
     /// Highlights a box of the canvas starting at `pos` and extending bottom right for `size`
     ///
@@ -324,21 +326,21 @@ pub trait Canvas : Size + Sized {
         foreground: impl Into<Option<Color>>,
         background: impl Into<Option<Color>>
     ) -> DrawResult<Self::Output, Rect> {
-        self.error()?;
+        let canvas = self.base_canvas()?;
 
         let pos = Vec2::from_pos(pos);
         let size = Vec2::from_size(size);
-        self.catch(check_bounds(pos, size, self, "highlight"))?;
+        canvas.catch(check_bounds(pos, size, canvas, "highlight"))?;
         
         let foreground = foreground.into();
         let background = background.into();
 
         for offset in iproduct!(0..size.width(), 0..size.height()) {
             let coord = pos + Vec2::from(offset);
-            self.highlight(&coord, foreground, background)?;
+            canvas.highlight(&coord, foreground, background)?;
         }
 
-        Ok(DrawInfo::rect(self.unwrap_base_canvas(), pos, size))
+        Ok(DrawInfo::rect(canvas, pos, size))
     }
     /// Sets a box of the canvas with `chr` starting at `pos` and extending bottom right for `size`
     ///
@@ -368,18 +370,18 @@ pub trait Canvas : Size + Sized {
         size: &impl Size,
         chr: char,
     ) -> DrawResult<Self::Output, Rect> {
-        self.error()?;
+        let canvas = self.base_canvas()?;
 
         let pos = Vec2::from_pos(pos);
         let size = Vec2::from_size(size);
-        self.catch(check_bounds(pos, size, self, "highlight"))?;
+        canvas.catch(check_bounds(pos, size, canvas, "highlight"))?;
 
         for offset in iproduct!(0..size.width(), 0..size.height()) {
             let coord = pos + Vec2::from(offset);
-            self.set(&coord, chr)?;
+            canvas.set(&coord, chr)?;
         }
 
-        Ok(DrawInfo::rect(self.unwrap_base_canvas(), pos, size))
+        Ok(DrawInfo::rect(canvas, pos, size))
     }
     /// Writes some text on the canvas at `pos`
     ///
@@ -431,20 +433,20 @@ pub trait Canvas : Size + Sized {
     /// # Ok(()) }
     /// ```
     fn text_absolute(&mut self, pos: &impl Pos, string: &str) -> DrawResult<Self::Output, Rect> {
-        self.error()?;
+        let canvas = self.base_canvas()?;
 
-        let canvas = Vec2::from_size(self);
+        let canvas_size = Vec2::from_size(canvas);
         let pos = Vec2::from_pos(pos);
         for (charnum, chr) in (0..).zip(string.chars()) {
             let charpos = pos.add_x(charnum);
-            catch!(self.set_without_catch(charpos, chr)
+            catch!(canvas.set_without_catch(charpos, chr)
                 // add a nice error
-                .map_err(|_| Error::TextOverflow { starting: pos, text: string.to_owned(), ending: charpos, canvas })
+                .map_err(|_| Error::TextOverflow { starting: pos, text: string.to_owned(), ending: charpos, canvas: canvas_size })
             );
         }
 
-        let textsize = self.catch((string.len(), 1).try_into())?;
-        Ok(DrawInfo::rect(self.unwrap_base_canvas(), pos, textsize))
+        let textsize = canvas.catch((string.len(), 1).try_into())?;
+        Ok(DrawInfo::rect(canvas, pos, textsize))
     }
     /// Draws a box onto the canvas using `justification` with size `size`
     ///
@@ -502,11 +504,11 @@ pub trait Canvas : Size + Sized {
     /// # Ok(()) }
     /// ```
     fn rect_absolute(&mut self, pos: &impl Pos, size: &impl Size, chars: &'static box_chars::Chars) -> DrawResult<Self::Output, Rect> {
-        self.error()?;
+        let canvas = self.base_canvas()?;
 
         let size = Vec2::from_size(size);
         let pos = Vec2::from_pos(pos);
-        self.catch(check_bounds(pos, size, self, "rect"))?;
+        canvas.catch(check_bounds(pos, size, canvas, "rect"))?;
 
         let top = 0;
         let bottom = size.height() - 1;
@@ -514,22 +516,22 @@ pub trait Canvas : Size + Sized {
         let right = size.width() - 1;
 
         for x in (left + 1)..right {
-            self.set(&(pos + (x, top)), chars.horizontal())?;
-            self.set(&(pos + (x, bottom)), chars.horizontal())?;
+            canvas.set(&(pos + (x, top)), chars.horizontal())?;
+            canvas.set(&(pos + (x, bottom)), chars.horizontal())?;
         }
 
         for y in (top + 1)..bottom {
-            self.set(&(pos + (left, y)), chars.vertical())?;
-            self.set(&(pos + (right, y)), chars.vertical())?;
+            canvas.set(&(pos + (left, y)), chars.vertical())?;
+            canvas.set(&(pos + (right, y)), chars.vertical())?;
         }
 
         // set corners                             udlr
-        self.set(&(pos + (left, top)),     chars[0b0101])?;
-        self.set(&(pos + (right, top)),    chars[0b0110])?;
-        self.set(&(pos + (left, bottom)),  chars[0b1001])?;
-        self.set(&(pos + (right, bottom)), chars[0b1010])?;
+        canvas.set(&(pos + (left, top)),     chars[0b0101])?;
+        canvas.set(&(pos + (right, top)),    chars[0b0110])?;
+        canvas.set(&(pos + (left, bottom)),  chars[0b1001])?;
+        canvas.set(&(pos + (right, bottom)), chars[0b1010])?;
 
-        Ok(DrawInfo::rect(self.unwrap_base_canvas(), pos, size))
+        Ok(DrawInfo::rect(canvas, pos, size))
     }
     /// Draws a box onto the canvas with justification `just`, grid dimensions `dims`, cell size
     /// `cell_size`, and using box chars `chars` 
@@ -611,13 +613,13 @@ pub trait Canvas : Size + Sized {
         dims: &impl Size,
         chars: &'static box_chars::Chars
     ) -> DrawResult<Self::Output, Grid> {
-        self.error()?;
+        let canvas = self.base_canvas()?;
 
         let pos = Vec2::from_pos(pos);
         let cell_size = Vec2::from_size(cell_size);
         let dims = Vec2::from_size(dims);
         let full_size = full_grid_size(cell_size, dims);
-        self.catch(check_bounds(pos, full_size, self, "grid"))?;
+        canvas.catch(check_bounds(pos, full_size, canvas, "grid"))?;
 
         let top = 0;
         let bottom = full_size.height() - 1;
@@ -625,54 +627,42 @@ pub trait Canvas : Size + Sized {
         let right = full_size.width() - 1;
 
         // outer rectangle
-        self.rect_absolute(&pos, &full_size, chars)?;
+        canvas.rect_absolute(&pos, &full_size, chars)?;
 
         // middle horizontal lines
         for horizontal in 1..dims.y {
             let y = horizontal * (cell_size.y + 1);
-            self.set(&(pos + (left, y)), chars[0b1101])?;
-            self.set(&(pos + (right, y)), chars[0b1110])?;
+            canvas.set(&(pos + (left, y)), chars[0b1101])?;
+            canvas.set(&(pos + (right, y)), chars[0b1110])?;
             for x in (left + 1)..right {
-                self.set(&(pos + (x, y)), chars.horizontal())?;
+                canvas.set(&(pos + (x, y)), chars.horizontal())?;
             }
         }
 
         // middle vertical lines
         for vertical in 1..dims.x {
             let x = vertical * (cell_size.x + 1);
-            self.set(&(pos + (x, top)), chars[0b0111])?;
-            self.set(&(pos + (x, bottom)), chars[0b1011])?;
+            canvas.set(&(pos + (x, top)), chars[0b0111])?;
+            canvas.set(&(pos + (x, bottom)), chars[0b1011])?;
             for y in (top + 1)..bottom {
-                self.set(&(pos + (x, y)), chars.vertical())?;
+                canvas.set(&(pos + (x, y)), chars.vertical())?;
             }
         }
 
         // intersections
         for intersection in dims - 1 {
             let pos = pos + (intersection + 1) * (cell_size + 1);
-            self.set(&pos, chars[0b1111])?;
+            canvas.set(&pos, chars[0b1111])?;
         }
 
         // the grid returned fills up the entire grid including the outlines
         // so there's some overlap
-        Ok(DrawInfo::grid(self.unwrap_base_canvas(), pos + 1, dims, cell_size + 2, Vec2::new(-1, -1)))
+        Ok(DrawInfo::grid(canvas, pos + 1, dims, cell_size + 2, Vec2::new(-1, -1)))
     }
     // fn draw<F: FnOnce(&mut Self::Output) -> DrawResult<Self::Output, Rect>>(&mut self, func: F) -> DrawResult<Self::Output, Rect> {
-    //     self.error()?;
-    //     func(self.unwrap_base_canvas())
+    //     let canvas = self.base_canvas()?;
+    //     func(canvas)
     // }
-    /// Gets the underlying canvas
-    ///
-    /// **Note:** This is guaranteed not to panic if calling [`Self::error`] returns [`Ok`]
-    ///
-    /// **Note:** This is mainly only meant to be used internally, please use [`Result::unwrap`] or
-    /// `?` instead
-    ///
-    /// # Panics
-    ///
-    /// - If the base canvas isn't owned anymore (such as when piping instructions
-    /// on a [`DrawResult`] results with an [`Err`])
-    fn unwrap_base_canvas(&mut self) -> &mut Self::Output;
     /// Gets any errors the canvas has
     ///
     /// This only ever occurs when piping instructions on a [`DrawResult`], unless
@@ -699,6 +689,11 @@ pub trait Canvas : Size + Sized {
     /// **Note:** This is mainly only meant to be used internally, all methods already catch any
     /// errors they encounter
     fn throw(&mut self, err: &Error);
+    /// Gets the underlying canvas past the potential result (as in a [`DrawResult`])
+    ///
+    /// **Note:** This is mainly only meant to be used internally, please use [`Result::unwrap`] or
+    /// `?` instead
+    fn base_canvas(&mut self) -> Result<&mut Self::Output, Error>;
 }
 
 /// A basic canvas, holds the text and highlights in 2d arrays
@@ -777,9 +772,9 @@ impl Canvas for Basic {
         Ok(Window::new(self, pos, size))
     }
 
-    fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
     fn error(&self) -> Result<(), Error> { Ok(()) }
     fn throw(&mut self, _err: &Error) { }
+    fn base_canvas(&mut self) -> Result<&mut Self::Output, Error> { Ok(self) }
 }
 
 /// A window into another canvas
@@ -844,9 +839,9 @@ impl<'a, C: Canvas> Canvas for Window<'a, C> {
         Ok(Window::new(self.canvas, &(Vec2::from_pos(pos) + self.offset), size))
     }
 
-    fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
     fn error(&self) -> Result<(), Error> { Ok(()) }
     fn throw(&mut self, err: &Error) { self.canvas.throw(err) }
+    fn base_canvas(&mut self) -> Result<&mut Self::Output, Error> { Ok(self) }
 }
 
 /// A canvas wrapped with an error catcher callback
@@ -890,12 +885,12 @@ impl<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> Canvas for ErrorCatc
         Ok(Window::new(self, pos, size))
     }
 
-    fn unwrap_base_canvas(&mut self) -> &mut Self::Output { self }
     fn error(&self) -> Result<(), Error> { Ok(()) }
     fn throw(&mut self, err: &Error) {
         (self.callback)(&mut self.canvas, err)
             .expect("when_error callback threw an error itself, not rerunning to prevent an infinite loop");
     }
+    fn base_canvas(&mut self) -> Result<&mut Self::Output, Error> { Ok(self) }
 }
 
 #[cfg(test)]
