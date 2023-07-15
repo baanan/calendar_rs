@@ -15,7 +15,9 @@ macro_rules! catch {
     };
 }
 
-pub(crate) fn check_bounds(pos: Vec2, size: Vec2, canvas: &impl Size, name: &'static str) -> Result<(), Error> {
+/// Utility function to check if an object with pos `pos` and size `size` fits in a canvas of size
+/// `canvas`. The resulting error will use the name `name` to refer to the object.
+pub fn check_bounds(pos: Vec2, size: Vec2, canvas: &impl Size, name: &'static str) -> Result<(), Error> {
     let canvas = Vec2::from_size(canvas);
     let outer = pos + size;
     if outer.x > canvas.x || outer.y > canvas.y {
@@ -659,10 +661,13 @@ pub trait Canvas : Size + Sized {
         // so there's some overlap
         Ok(DrawInfo::grid(canvas, pos + 1, dims, cell_size + 2, Vec2::new(-1, -1)))
     }
-    // fn draw<F: FnOnce(&mut Self::Output) -> DrawResult<Self::Output, Rect>>(&mut self, func: F) -> DrawResult<Self::Output, Rect> {
-    //     let canvas = self.base_canvas()?;
-    //     func(canvas)
-    // }
+    fn draw<F>(&mut self, func: F) -> DrawResult<Self::Output, Rect> 
+    where
+        F: FnOnce(&mut Self::Output) -> DrawResult<Self::Output, Rect> 
+    {
+        let canvas = self.base_canvas()?;
+        func(canvas)
+    }
     /// Gets any errors the canvas has
     ///
     /// This only ever occurs when piping instructions on a [`DrawResult`], unless
