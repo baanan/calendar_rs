@@ -1,10 +1,10 @@
-use canvas_tui::{prelude::*, shapes::Rect};
-
-const ROSEWATER: Color = Color::new(242, 213, 207);
-const HIGHLIGHT_TEXT: Color = Color::new(48, 52, 70);
+use canvas_tui::{prelude::*, widgets::basic};
 
 fn main() {
     canvas_tui::init();
+
+    let rosewater = Color::new(242, 213, 207);
+    let highlight_text = Color::new(48, 52, 70);
 
 
     // let mut canvas = Basic::filled_with_text(&(11, 5), '.')
@@ -36,30 +36,14 @@ fn main() {
     //         .inside().grow_profile(&(1, 0)).colored(HIGHLIGHT_TEXT, ROSEWATER)
     //     .discard_result();
 
-    let widgets = Widgets;
-
-    let mut canvas = Basic::filled_with_text(&(9, 5), '·')
+    let mut canvas = Basic::filled_with_text(&(7, 3), '·')
         .when_error(|canvas, _| {
             canvas.fill('x')?;
             Ok(())
         });
 
-    canvas.draw(widgets.title(&Just::CenteredOnRow(1), "bello"))
+    canvas.draw(&Just::Centered, basic::title("foo", highlight_text, rosewater))
         .discard_result();
 
     let _ = canvas.print();
-}
-
-struct Widgets;
-
-impl Widgets {
-    pub fn title<'a, C: Canvas>(&'a self, just: &'a Just, text: &'a str) 
-        -> impl FnOnce(&mut C) -> DrawResult<C::Output, Rect> + '_ 
-    {
-        move |canvas| {
-            canvas.text(just, text)
-                .grow_profile(&(1, 0))
-                .colored(HIGHLIGHT_TEXT, ROSEWATER)
-        }
-    }
 }

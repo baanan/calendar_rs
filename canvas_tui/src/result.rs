@@ -293,6 +293,9 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// # Ok(()) }
     /// ```
     fn discard_result(&self) {}
+    /// Discards the info inside, returning only the possible error
+    #[allow(clippy::missing_errors_doc)]
+    fn discard_info(self) -> Result<(), Error>;
 }
 
 impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for DrawResult<'c, C, S> {
@@ -335,6 +338,8 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for D
             shape.draw(output, drawer).grow_profile(&(1, 1))
         )
     }
+
+    fn discard_info(self) -> Result<(), Error> { self.map(|_| ()) }
 }
 
 impl<'c, C: Canvas<Output = C>, S: DrawnShape> Size for DrawResult<'c, C, S> {
@@ -384,7 +389,7 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> Canvas for DrawResult<'c, C, S> {
         if let Ok(canvas) = self { canvas.throw(err) }
     }
     fn base_canvas(&mut self) -> Result<&mut Self::Output, Error> {
-        self.as_mut().map(|info| info.deref_mut()).map_err(|err| err.clone())
+        self.as_mut().map(DerefMut::deref_mut).map_err(|err| err.clone())
     }
 }
 

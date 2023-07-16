@@ -1,4 +1,4 @@
-use crate::{num::{Size, Pos}, justification::Just, prelude::box_chars, shapes::Grid, result::{DrawResult, DrawInfo}};
+use crate::{num::{Size, Pos}, justification::Just, prelude::box_chars, shapes::Grid, result::{DrawResult, DrawInfo}, widgets::Widget};
 
 use super::{color::Color, num::Vec2, shapes::{Rect, Single}};
 use array2d::Array2D;
@@ -17,6 +17,7 @@ macro_rules! catch {
 
 /// Utility function to check if an object with pos `pos` and size `size` fits in a canvas of size
 /// `canvas`. The resulting error will use the name `name` to refer to the object.
+#[allow(clippy::missing_errors_doc)]
 pub fn check_bounds(pos: Vec2, size: Vec2, canvas: &impl Size, name: &'static str) -> Result<(), Error> {
     let canvas = Vec2::from_size(canvas);
     let outer = pos + size;
@@ -661,12 +662,18 @@ pub trait Canvas : Size + Sized {
         // so there's some overlap
         Ok(DrawInfo::grid(canvas, pos + 1, dims, cell_size + 2, Vec2::new(-1, -1)))
     }
-    fn draw<F>(&mut self, func: F) -> DrawResult<Self::Output, Rect> 
-    where
-        F: FnOnce(&mut Self::Output) -> DrawResult<Self::Output, Rect> 
-    {
+    /// Draws a [widget](Widget) onto the canvas using `justification`
+    ///
+    /// # Errors
+    ///
+    /// - If the widget doesn't have enough space
+    fn draw<W: Widget>(&mut self, justification: &Just, widget: W) -> DrawResult<Self::Output, Rect> {
         let canvas = self.base_canvas()?;
-        func(canvas)
+        let size = widget.size(canvas)?;
+        let pos = justification.get(canvas, &size)?;
+        canvas.catch(check_bounds(pos, size, canvas, W::name()))?;
+        widget.draw(&mut canvas.window_absolute(&pos, &size)?)?;
+        Ok(DrawInfo::rect(canvas, pos, size))
     }
     /// Gets any errors the canvas has
     ///
@@ -698,6 +705,10 @@ pub trait Canvas : Size + Sized {
     ///
     /// **Note:** This is mainly only meant to be used internally, please use [`Result::unwrap`] or
     /// `?` instead
+    ///
+    /// # Errors
+    ///
+    /// - If the current canvas [has an error](Self::error)
     fn base_canvas(&mut self) -> Result<&mut Self::Output, Error>;
 }
 
