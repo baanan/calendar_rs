@@ -408,7 +408,7 @@ pub trait Canvas : Size + Sized {
     /// ```
     fn text(&mut self, justification: &Just, string: &str) -> DrawResult<Self::Output, Rect> {
         self.error()?;
-        let len = string.len()
+        let len = string.chars().count()
             .try_into()
             .map_err(|_| Error::TooLarge("string length", string.len()));
         let size = (self.catch(len)?, 1);
@@ -448,7 +448,7 @@ pub trait Canvas : Size + Sized {
             );
         }
 
-        let textsize = canvas.catch((string.len(), 1).try_into())?;
+        let textsize = canvas.catch((string.chars().count(), 1).try_into())?;
         Ok(DrawInfo::rect(canvas, pos, textsize))
     }
     /// Draws a box onto the canvas using `justification` with size `size`
