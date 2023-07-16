@@ -1,11 +1,10 @@
-use canvas_tui::{prelude::*, widgets::basic};
+use canvas_tui::{prelude::*, widgets::themed::{Theme, Themed}};
 
 fn main() {
     canvas_tui::init();
 
-    let rosewater = Color::new(242, 213, 207);
-    let highlight_text = Color::new(48, 52, 70);
-
+    // let rosewater = Color::new(242, 213, 207);
+    // let highlight_text = Color::new(48, 52, 70);
 
     // let mut canvas = Basic::filled_with_text(&(11, 5), '.')
     //     .when_error(|canvas, _| {
@@ -35,6 +34,20 @@ fn main() {
     //         }))
     //         .inside().grow_profile(&(1, 0)).colored(HIGHLIGHT_TEXT, ROSEWATER)
     //     .discard_result();
+    
+    struct Frappe;
+
+    impl Frappe {
+        pub const fn rosewater() -> Color { Color::new(242, 213, 207) }
+        pub const fn base() -> Color { Color::new(48, 52, 70) }
+    }
+
+    impl Theme for Frappe {
+        fn title_fg(&self) -> Color { Self::base() }
+        fn title_bg(&self) -> Color { Self::rosewater() }
+    }
+
+    let widgets = Themed::new(Frappe);
 
     let mut canvas = Basic::filled_with_text(&(7, 3), '·')
         .when_error(|canvas, _| {
@@ -42,7 +55,7 @@ fn main() {
             Ok(())
         });
 
-    canvas.draw(&Just::Centered, basic::title("foo", highlight_text, rosewater))
+    canvas.draw(&Just::Centered, widgets.title("foo"))
         .discard_result();
 
     let _ = canvas.print();

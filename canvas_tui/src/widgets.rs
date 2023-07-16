@@ -2,11 +2,13 @@ use crate::{prelude::*, num::Size};
 
 /// Constructs a [`Widget`] using the specified parameters
 ///
-/// # Example
+/// # Examples
+///
+/// ## Creating a new widget
 ///
 /// ```
 /// use canvas_tui::prelude::*;
-/// use canvas_tui::widgets::widget;
+/// use widgets::widget;
 ///
 /// widget! {
 ///     // you can also specify a struct to be a parent, in which the function becomes a method
@@ -20,8 +22,8 @@ use crate::{prelude::*, num::Size};
 ///         foreground: Color,
 ///         background: Color,
 ///     ),
-///     // gets the size of the widget
-///     size: |self, _| { 
+///     // returns the size of the widget
+///     size: |&self, _| { 
 ///         let len = self.text.len();
 ///         let len: isize = len.try_into()
 ///             .map_err(|_| Error::TooLarge("text length", len))?;
@@ -49,13 +51,47 @@ use crate::{prelude::*, num::Size};
 ///     Ok(())
 /// }
 /// ```
+///
+/// ## Changing an already existing widget
+///
+/// ```
+/// use canvas_tui::prelude::*;
+/// use widgets::widget;
+///
+/// widget! {
+///     name: title,
+///     origin: widgets::basic,
+///     create: |text: &str| (
+///         text,
+///         Color::WHITE,
+///         Color::BLACK,
+///     )
+/// }
+///
+/// fn main() -> Result<(), Error> {
+///     let mut canvas = Basic::new(&(7, 3));
+///     canvas.draw(&Just::Centered, title("foo"))?;
+///
+///     // ·······
+///     // ·-foo-· highlight represented by -
+///     // ·······
+///     assert_eq!(canvas.get(&(0, 1))?.foreground, None);
+///     assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Color::WHITE));
+///     assert_eq!(canvas.get(&(2, 1))?.foreground, Some(Color::WHITE));
+///     Ok(())
+/// }
+/// ```
 #[macro_export]
 macro_rules! widget {
     (
+        // the name of the widget and the function that creates it
         name: $name:ident,
+        // the arguments for the creation function
         args: ( $($arg:ident: $type:ty $([$from:ty as $converter:ty])?),* $(,)? ), 
-        size: |$sizeself:ident, $canvas_size:tt| $size:expr,
-        draw: |$drawself:ident, $canvas:ident| $draw:expr,
+        // returns the size of the widget
+        size: |&$sizeself:ident, $canvas_size:tt| $size:expr,
+        // draws the widget onto `canvas`
+        draw: |$drawself:ident, $canvas:ident| $draw:expr $(,)?
     ) => {
         paste::paste! {
             #[doc(hidden)]
@@ -76,11 +112,16 @@ macro_rules! widget {
         }
     };
     (
+        // the parent struct that the widget becomes a method of
         parent: $parent:ident$(<$($generic_name:tt: $generic_value:tt),*>)?,
+        // the name of the widget and the function that creates it
         name: $name:ident,
+        // the arguments for the creation function
         args: ( $($arg:ident: $type:ty $([$from:ty as $converter:ty])?),* $(,)? ),
-        size: |$sizeself:ident, $canvas_size:tt| $size:expr,
-        draw: |$drawself:ident, $canvas:ident| $draw:expr,
+        // returns the size of the widget
+        size: |&$sizeself:ident, $canvas_size:tt| $size:expr,
+        // draws the widget onto `canvas`
+        draw: |$drawself:ident, $canvas:ident| $draw:expr $(,)?
     ) => {
         paste::paste! {
             #[doc(hidden)]
@@ -105,6 +146,44 @@ macro_rules! widget {
             }
 
         }       
+    };
+    (
+        // the name of the created and original widget
+        name: $name:ident,
+        // the path of the original widget's module (can't be a struct currently)
+        origin: $origin:path,
+        // the new widget's signature + the arguments passed into the original widget
+        create: |$($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)?
+    ) => {
+        paste::paste! {
+            #[must_use]
+            #[allow(clippy::redundant_field_names)]
+            pub fn [<$name:lower>]($($param: $type),*) -> impl Widget + '_ {
+                $origin::$name($($arg),*)
+            }
+        }
+    };
+    (
+        // the parent struct that the widget becomes a method of
+        parent: $parent:ident$(<$($generic_name:tt: $generic_value:tt),*>)?,
+        // the name of the created and original widget
+        name: $name:ident,
+        // the path of the original widget's module (can't be a struct currently)
+        origin: $origin:path,
+        // the new widget's signature + the arguments passed into the original widget
+        // the first argument is &self, referring to the parent
+        create: |&$create_self:ident, $($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)? 
+    ) => {
+        paste::paste! {
+            #[allow(clippy::redundant_field_names)]
+            impl$(<$($generic_name: $generic_value),*>)? $parent$(<$($generic_name),*>)? {
+                #[must_use]
+                #[allow(clippy::redundant_field_names)]
+                pub fn [<$name:lower>]<'a>(&'a $create_self, $($param: $type),*) -> impl Widget + '_ {
+                    $origin::$name($($arg),*)
+                }
+            }
+        }
     };
 }
 
@@ -145,6 +224,35 @@ pub trait Widget {
     fn name() -> &'static str;
 }
 
+/// A set of basic widgets with no set theming
+///
+/// For basic theming support with the same style, see [`themed`]
+///
+/// # Example
+///
+/// ```
+/// use canvas_tui::prelude::*;
+/// use widgets::basic;
+///
+/// struct Frappe;
+///
+/// impl Frappe {
+///     pub const fn rosewater() -> Color { Color::new(242, 213, 207) }
+///     pub const fn base() -> Color { Color::new(48, 52, 70) }
+/// }
+///
+/// fn main() -> Result<(), Error> {
+///     let mut canvas = Basic::new(&(7, 3));
+///     canvas.draw(&Just::Centered, basic::title("foo", Frappe::base(), Frappe::rosewater()))?;
+///
+///     // ·······
+///     // ·-foo-· (highlight represented by -)
+///     // ·······
+///     assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Frappe::base()));
+///     assert_eq!(canvas.get(&(1, 1))?.background, Some(Frappe::rosewater()));
+///     Ok(())
+/// }
+/// ```
 pub mod basic {
     use crate::prelude::*;
 
@@ -155,7 +263,7 @@ pub mod basic {
             foreground: Option<Color> [impl Into<Option<Color>> as into],
             background: Option<Color> [impl Into<Option<Color>> as into],
         ),
-        size: |self, _| {
+        size: |&self, _| {
             let len = self.text.len();
             let len: isize = len.try_into()
                 .map_err(|_| Error::TooLarge("text length", len))?;
@@ -170,6 +278,39 @@ pub mod basic {
     }
 }
 
+/// A set of widgets with the same style as [`basic`], but with colors determined by the theme
+///
+/// # Example
+///
+/// ```
+/// use canvas_tui::prelude::*;
+///
+/// struct Frappe;
+///
+/// impl Frappe {
+///     pub const fn rosewater() -> Color { Color::new(242, 213, 207) }
+///     pub const fn base() -> Color { Color::new(48, 52, 70) }
+/// }
+///
+/// impl widgets::Theme for Frappe {
+///     fn title_fg(&self) -> Color { Self::base() }
+///     fn title_bg(&self) -> Color { Self::rosewater() }
+/// }
+///
+/// fn main() -> Result<(), Error> {
+///     let widgets = widgets::Themed::new(Frappe);
+///
+///     let mut canvas = Basic::new(&(7, 3));
+///     canvas.draw(&Just::Centered, widgets.title("foo"))?;
+///
+///     // ·······
+///     // ·-foo-· (highlight represented by -)
+///     // ·······
+///     assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Frappe::base()));
+///     assert_eq!(canvas.get(&(1, 1))?.background, Some(Frappe::rosewater()));
+///     Ok(())
+/// }
+/// ```
 pub mod themed {
     use crate::prelude::*;
 
@@ -182,23 +323,22 @@ pub mod themed {
         pub theme: T
     }
 
+    impl<T: Theme> Themed<T> {
+        pub const fn new(theme: T) -> Self {
+            Self { theme }
+        }
+    }
+
     widget! {
         parent: Themed<T: Theme>,
         name: title,
-        args: (
-            text: String [&str as to_string]
-        ),
-        size: |self, _| {
-            let len = self.text.len();
-            let len: isize = len.try_into()
-                .map_err(|_| Error::TooLarge("text length", len))?;
-            Ok(Vec2::new(len + 2, 1))
-        },
-        draw: |self, canvas| {
-            canvas.text(&Just::Centered, &self.text)
-                .grow_profile(&(1, 0))
-                .colored(self.parent.theme.title_fg(), self.parent.theme.title_bg())
-                .discard_info()
-        },
+        origin: super::basic,
+        create: |&self, text: &'a str| (
+            text,
+            self.theme.title_fg(),
+            self.theme.title_bg(),
+        )
     }
 }
+
+pub use themed::*;
