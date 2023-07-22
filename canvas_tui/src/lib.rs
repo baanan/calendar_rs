@@ -12,6 +12,7 @@ pub mod text;
 pub mod shapes;
 pub mod result;
 pub mod widgets;
+pub mod themes;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {

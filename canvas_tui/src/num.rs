@@ -12,6 +12,7 @@ pub struct Vec2 { pub x: isize, pub y: isize, }
 
 impl Vec2 {
     pub const ZERO: Self = Self::new(0, 0);
+    pub const ONE: Self = Self::new(1, 1);
 
     #[must_use]
     pub const fn new(x: isize, y: isize) -> Self {
