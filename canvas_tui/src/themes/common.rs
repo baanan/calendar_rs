@@ -31,7 +31,7 @@ impl OneDark {
 ///
 /// Colors obtained from [here](https://github.com/catppuccin/catppuccin)
 pub mod catppuccin {
-    use crate::prelude::*;
+    use crate::{prelude::*, themes::BasicTheme};
 
     pub struct Latte;
     impl Latte {
@@ -96,6 +96,42 @@ pub mod catppuccin {
             crust: (35, 38, 52),
         }
     }
+
+    impl BasicTheme for Frappe {
+        fn base() -> Color { Self::base() }
+        fn mantle() -> Color { Self::mantle() }
+        fn crust() -> Color { Self::crust() }
+        fn surface() -> Color { Self::surface0() }
+        fn surface1() -> Color { Self::surface1() }
+        fn surface2() -> Color { Self::surface2() }
+        fn text() -> Color { Self::text() }
+        fn subtext() -> Color { Self::subtext0() }
+
+        fn special_text() -> Color { Color::WHITE }
+
+        fn success() -> Color { Self::green() }
+        fn warning() -> Color { Self::yellow() }
+        fn error() -> Color { Self::red() }
+
+        fn link() -> Color { Self::blue() }
+    }
+
+    // FIX: remove later, has to be procedural and it's probably not worth it
+    // theme! { Frappe,
+    //     text: Self::text(),
+    //     title => { fg: Self::text(), bg: Self::mantle(), },
+    //     button => {
+    //         fg: Self::subtext0() => { hover: Self::text() },
+    //         bg: Self::surface0(),
+    //     },
+    //     titled_text => {
+    //         title => { fg: Self::text(), bg: Self::mantle(), },
+    //         text => {
+    //             fg: Self::text(),
+    //             bg: Self::mantle(),
+    //         }
+    //     }
+    // }
 
     pub struct Macchiato;
     impl Macchiato {

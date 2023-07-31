@@ -1,9 +1,6 @@
-use canvas_tui::prelude::*;
+use canvas_tui::{prelude::*, themes::BasicTheme};
 
 fn main() -> Result<(), Error> {
-    // let rosewater = Color::new(242, 213, 207);
-    // let highlight_text = Color::new(48, 52, 70);
-
     // let mut canvas = Basic::filled_with_text(&(11, 5), '.')
     //     .when_error(|canvas, _| {
     //         canvas.fill('x')?;
@@ -58,20 +55,52 @@ fn main() -> Result<(), Error> {
     // canvas.draw(&Just::Centered, widgets.title("foo"))
     //     .discard_result();
 
-    use widgets::basic;
+    // use widgets::basic;
+    // use themes::catppuccin::Frappe;
+
+    // let mut canvas = Basic::new(&(9, 3));
+    // canvas.draw(&Just::Centered, basic::toggle("foo", false, Frappe::base(), Frappe::rosewater()))?;
+    
+    // // ·········
+    // // ·-foo-✕-· (highlight represented by -)
+    // // ·········
+    // assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Frappe::base()));
+    // assert_eq!(canvas.get(&(1, 1))?.background, Some(Frappe::rosewater()));
+    // assert_eq!(canvas.get(&(6, 1))?.text, '✕');
+
+    // let _ = canvas.print();
+
+    // use widgets::selectable::Selectable;
+    // use themes::catppuccin::Frappe;
+
+    // let widgets = Selectable::num(Frappe, 1);
+    // let mut canvas = Basic::new(&(9, 3));
+    // canvas.draw(&Just::Centered, basic::toggle("foo", false, Frappe::base(), Frappe::rosewater()))?;
+    
+    // // ·········
+    // // ·-foo-✕-· (highlight represented by -)
+    // // ·········
+    // assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Frappe::base()));
+    // assert_eq!(canvas.get(&(1, 1))?.background, Some(Frappe::rosewater()));
+    // assert_eq!(canvas.get(&(6, 1))?.text, '✕');
+
+    // let _ = canvas.print();
+
     use themes::catppuccin::Frappe;
 
-    let mut canvas = Basic::new(&(9, 3));
-    canvas.draw(&Just::Centered, basic::toggle("foo", false, Frappe::base(), Frappe::rosewater()))?;
-    
-    // ·········
-    // ·-foo-✕-· (highlight represented by -)
-    // ·········
-    assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Frappe::base()));
-    assert_eq!(canvas.get(&(1, 1))?.background, Some(Frappe::rosewater()));
-    assert_eq!(canvas.get(&(6, 1))?.text, '✕');
+    #[allow(unused_variables)]
+    let rosewater = Color::new(242, 213, 207);
+    #[allow(unused_variables)]
+    let highlight_text = Color::new(48, 52, 70);
 
-    let _ = canvas.print();
+    let widgets = widgets::Selectable::num(Frappe.highlighted(rosewater), 1, false);
+    let mut canvas = Basic::filled_with(&(15, 9), ' ', Frappe::text(), Frappe::base());
+
+    canvas
+        .draw(&Just::CenteredOnRow(1), widgets.title("Preferences"))
+        .draw(&Just::CenteredOnRow(3), widgets.titled_text("Theme", &["Latte", "Frappe", "Macchiato", "Mocha"], 0..))?;
+
+    canvas.print()?;
 
     Ok(())
 }

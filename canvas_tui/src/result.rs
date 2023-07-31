@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::Error;
 use crate::color::Color;
+use crate::shapes::GrowFrom;
 
 use super::canvas::{Canvas, Cell};
 use super::shapes::{DrawnShape, Grid, Rect, Single};
@@ -205,6 +206,12 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// # Ok(()) }
     /// ```
     fn grow_profile(self, size: &impl Size) -> DrawResult<'c, C, S::Grown>;
+    /// Expands the canvas to the new x and y, if given
+    ///
+    /// # Errors
+    ///
+    /// - If the result is an error
+    fn expand_profile(self, x: impl Into<Option<isize>>, y: impl Into<Option<isize>>, from: GrowFrom) -> DrawResult<'c, C, S::Grown>;
     /// Gets the profile of the inside of the last drawn object by shrinking the bounds by 1
     ///
     /// Equivalent to [`result`](Self)[`.grow_bounds(&(-1, -1))`](Self::grow_profile)
@@ -276,7 +283,7 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// Ignore the result, especially for when the canvas is using
     /// [`when_error`](Canvas::when_error)
     ///
-    /// # Example
+    /// # Example32
     ///
     /// ```
     /// # use canvas_tui::prelude::*;
@@ -312,6 +319,12 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for D
     fn grow_profile(self, size: &impl Size) -> DrawResult<'c, C, S::Grown> {
         self.map(|DrawInfo { output, shape }|
             DrawInfo { output, shape: shape.grow(size) }
+        )
+    }
+
+    fn expand_profile(self, x: impl Into<Option<isize>>, y: impl Into<Option<isize>>, from: GrowFrom) -> DrawResult<'c, C, <S as DrawnShape>::Grown> {
+        self.map(|DrawInfo { output, shape }|
+            DrawInfo { output, shape: shape.expand_to(x.into(), y.into(), from) }
         )
     }
 

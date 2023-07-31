@@ -7,3 +7,4 @@ pub use crate::result::*;
 pub use crate::num::Vec2;
 pub use crate::widgets::{self, Widget};
 pub use crate::themes;
+pub use crate::shapes::GrowFrom;
