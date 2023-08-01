@@ -94,11 +94,11 @@ fn main() -> Result<(), Error> {
     let highlight_text = Color::new(48, 52, 70);
 
     let widgets = widgets::Selectable::num(Frappe.highlighted(rosewater), 1, true);
-    let mut canvas = Basic::filled_with(&(15, 7), '·', Frappe::text(), Frappe::base());
+    let mut canvas = Basic::filled_with(&(15, 7), ' ', Frappe::text(), Frappe::base());
 
     canvas
         // .draw(&Just::CenteredOnRow(1), widgets.title("Preferences"))
-        .draw(&Just::CenteredOnRow(1), widgets.titled_text(0.., "Theme", &["Latte", "Frappe", "Macchiato", "Mocha"]).max_width(7))?;
+        .draw(&Just::CenteredOnRow(1), widgets.titled_text(0.., "Theme", &["Latte", "Frappe", "Macchiato", "Mocha"]))?;
 
     canvas.print()?;
 

@@ -156,9 +156,8 @@ macro_rules! widget {
                 }
             );
 
-            use $crate::num::Size;
             impl Widget for [<$name:camel>] {
-                fn size(&$sizeself, $canvas_size: &impl Size) -> Result<Vec2, Error> { $size }
+                fn size(&$sizeself, $canvas_size: &impl $crate::num::Size) -> Result<Vec2, Error> { $size }
                 fn draw<C: Canvas>($drawself, $canvas: &mut C) -> Result<(), Error> { $draw }
                 fn name() -> &'static str { stringify!($name) }
             }
@@ -225,9 +224,8 @@ macro_rules! widget {
                 }
             );
 
-            use $crate::num::Size;
             impl<'a $(, $($generic_name: $generic_value),*)?> Widget for [<$name:camel>]<'a $(, $($generic_name),*)?> {
-                fn size(&$sizeself, $canvas_size: &impl Size) -> Result<Vec2, Error> { $size }
+                fn size(&$sizeself, $canvas_size: &impl $crate::num::Size) -> Result<Vec2, Error> { $size }
                 fn draw<C: Canvas>($drawself, $canvas: &mut C) -> Result<(), Error> { $draw }
                 fn name() -> &'static str { stringify!($name) }
             }
@@ -388,6 +386,29 @@ pub trait Widget {
     fn draw<C: Canvas>(self, canvas: &mut C) -> Result<(), Error>;
     /// The name of the widget to be used in error messages
     fn name() -> &'static str;
+}
+
+/// Truncate `string` to `max_width` optionally from the end if specified
+fn truncate(string: &str, max_width: Option<usize>, from_end: bool) -> String {
+    if let Some(max_width) = max_width {
+        if string.len() > max_width {
+            return truncate_unchecked(string, max_width, from_end);
+        }
+    }
+    string.to_string()
+}
+
+/// Truncate `string` to `max_width` optionally from the end if specified
+///
+/// # Panics
+///
+/// - If the `string`'s length is smaller than `max_width`
+fn truncate_unchecked(string: &str, max_width: usize, from_end: bool) -> String {
+    if from_end {
+        string[(string.len() - max_width)..].to_string()
+    } else {
+        string[..max_width].to_string()
+    }
 }
 
 pub mod basic;

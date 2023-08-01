@@ -30,10 +30,12 @@
 
 use crate::prelude::*;
 
+use super::truncate;
+
 widget! {
+    /// a lot of widgets extend this in some way
+    /// so here's a generic name for errors
     #[doc(hidden)]
-    // a lot of widgets extend this in some way
-    // so there's a generic name for errors
     name: highlighted_text,
     args: (
         text: String [impl Into<String> as into],
@@ -117,4 +119,83 @@ widget! {
         foreground,
         background,
     )
+}
+
+widget! {
+    /// A `title` with rows of `text` underneath
+    ///
+    /// # Optionals
+    ///
+    /// - [`max_width: usize`](TitledText::max_width)
+    ///
+    /// # Style
+    ///
+    /// The width adjusts to the widest line of text or `max_width` if it is hit
+    ///
+    /// ```text
+    /// ···············
+    /// ··###Theme###··
+    /// ··---Latte---··
+    /// ··--Frappe---··
+    /// ··-Macchiato-··
+    /// ··---Mocha---··
+    /// ···············
+    /// ```
+    #[allow(clippy::similar_names)] // sorry
+    name: titled_text,
+    args: (
+        title: String [impl ToString as to_string],
+        text: Vec<String> [&[impl ToString] > .iter().map(ToString::to_string).collect()],
+        title_fg: Color, title_bg: Color,
+        text_fg: Color, text_bg: Color,
+    ),
+    optionals: (
+        max_width: Option<usize>,
+    ),
+    size: |&self, _| {
+        titled_text_bounds(&self.title, &self.text, self.max_width)
+    },
+    draw: |self, canvas| {
+        let width = canvas.width();
+        // give the text some padding on the sides
+        let max_width = self.max_width.map(|max| max - 2);
+
+        // empty canvas
+        canvas.fill(' ')?;
+
+        // title
+        let title = truncate(&self.title, max_width, false);
+        canvas.text(&(Just::CenteredOnRow(0)), &title)
+            .expand_profile(width, None, GrowFrom::CenterPreferRight)
+            .colored(self.title_fg, self.title_bg)?;
+
+        // text
+        for (text, line) in self.text.iter().zip(1..) {
+            let text = truncate(text, max_width, false);
+            canvas.text(&Just::CenteredOnRow(line), &text)
+                .expand_profile(width, None, GrowFrom::Center)
+                .colored(self.text_fg, self.text_bg)?;
+        }
+
+        Ok(())
+    },
+}
+
+pub(super) fn titled_text_bounds(title: &String, text: &Vec<String>, max_width: Option<usize>) -> Result<Vec2, Error> {
+    let mut text_width = text.iter()
+        .chain(std::iter::once(title))
+        .map(|string| string.chars().count())
+        .max()
+        .expect("the iterator has at least one element: the title");
+    if let Some(max_width) = max_width {
+        text_width = text_width.min(max_width - 2);
+    }
+    let text_width: isize = text_width.try_into()
+        .map_err(|_| Error::TooLarge("text length", text_width))?;
+
+    let lines = text.len();
+    let lines: isize = lines.try_into()
+        .map_err(|_| Error::TooLarge("lines of titled text", lines))?;
+
+    Ok(Vec2::new(text_width + 2, lines + 1))
 }

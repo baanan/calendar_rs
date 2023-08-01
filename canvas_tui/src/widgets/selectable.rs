@@ -198,6 +198,10 @@ widget! {
     parent: Selectable<V: PartialEq, T: SelectableTheme>,
     /// A `title` with rows of `text` underneath
     ///
+    /// # Optionals
+    ///
+    /// - [`max_width: usize`](TitledText::max_width)
+    ///
     /// # Style
     ///
     /// The width adjusts to the widest line of text or `max_width` if it is hit
@@ -211,32 +215,56 @@ widget! {
     /// ··---Mocha---··
     /// ···············
     /// ```
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use canvas_tui::prelude::*;
+    /// use themes::catppuccin::Frappe;
+    /// use widgets::{Theme, SelectableTheme};
+    ///
+    /// fn main() -> Result<(), Error> {
+    ///     // 2 is selected (but not activated)
+    ///     let widgets = widgets::Selectable::num(Frappe, 2, false);
+    ///
+    ///     let mut canvas = Basic::new(&(15, 7));
+    ///     canvas
+    ///         .draw(&Just::CenteredOnRow(1), widgets.titled_text(
+    ///             1.., // the selections can be defined by an iterator 
+    ///             "Theme", &[
+    ///                 "Latte", // so the first is 1
+    ///                 "Frappe", // second is 2
+    ///                 "Macchiato", // and so on
+    ///                 "Mocha",
+    ///             ]
+    ///         ));
+    ///
+    ///     // ···············
+    ///     // ··###Theme###··
+    ///     // ··---Latte---··
+    ///     // ··--Frappe---·· selected!
+    ///     // ··-Macchiato-··
+    ///     // ··---Mocha---··
+    ///     // ···············
+    ///     assert_eq!(canvas.get(&(5, 1))?.text, 'T');
+    ///     assert_eq!(canvas.get(&(5, 1))?.foreground, Some(Frappe.titled_text_title_fg()));
+    ///     assert_eq!(canvas.get(&(5, 2))?.background, Some(Frappe.titled_text_text_bg()));
+    ///     assert_eq!(canvas.get(&(5, 3))?.background, Some(Frappe.titled_text_text_bg_hover()));
+    ///     assert_ne!(Frappe.titled_text_text_bg(), Frappe.titled_text_text_bg_hover());
+    ///     Ok(())
+    /// }
+    /// ```
     name: titled_text,
     args: (
         selections: Vec<V> [impl IntoIterator<Item = V> > .into_iter().take(text.len()).collect()],
-        title: String [&str as to_string],
+        title: String [impl ToString as to_string],
         text: Vec<String> [&[impl ToString] > .iter().map(ToString::to_string).collect()],
     ),
     optionals: (
         max_width: Option<usize>,
     ),
     size: |&self, _| {
-        let mut text_width = self.text.iter()
-            .chain(std::iter::once(&self.title))
-            .map(|string| string.chars().count())
-            .max()
-            .expect("the iterator has at least one element: the title");
-        if let Some(max_width) = self.max_width {
-            text_width = text_width.min(max_width - 2);
-        }
-        let text_width: isize = text_width.try_into()
-            .map_err(|_| Error::TooLarge("text length", text_width))?;
-
-        let lines = self.text.len();
-        let lines: isize = lines.try_into()
-            .map_err(|_| Error::TooLarge("lines of titled text", lines))?;
-
-        Ok(Vec2::new(text_width + 2, lines + 1))
+        basic::titled_text_bounds(&self.title, &self.text, self.max_width)
     },
     draw: |self, canvas| {
         let theme = &self.parent.theme;
@@ -269,27 +297,4 @@ widget! {
 
         Ok(())
     },
-}
-
-/// Truncate `string` to `max_width` from the start if `!activated` or from the end if `activated`
-fn truncate(string: &str, max_width: Option<usize>, activated: bool) -> String {
-    if let Some(max_width) = max_width {
-        if string.len() > max_width {
-            return truncate_unchecked(string, max_width, activated);
-        }
-    }
-    string.to_string()
-}
-
-/// Truncate `string` to `max_width` from the start if `!activated` or from the end if `activated`
-///
-/// # Panics
-///
-/// - If the `string`'s length is smaller than `max_width`
-fn truncate_unchecked(string: &str, max_width: usize, activated: bool) -> String {
-    if activated {
-        string[(string.len() - max_width)..].to_string()
-    } else {
-        string[..max_width].to_string()
-    }
 }

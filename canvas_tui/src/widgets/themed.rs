@@ -118,3 +118,36 @@ widget! {
         self.theme.button_bg(),
     )
 }
+
+widget! {
+    parent: Themed<T: Theme>,
+    /// A `title` with rows of `text` underneath
+    ///
+    /// # Optionals
+    ///
+    /// - [`max_width: usize`](TitledText::max_width)
+    ///
+    /// # Style
+    ///
+    /// The width adjusts to the widest line of text or `max_width` if it is hit
+    ///
+    /// ```text
+    /// ···············
+    /// ··###Theme###··
+    /// ··---Latte---··
+    /// ··--Frappe---··
+    /// ··-Macchiato-··
+    /// ··---Mocha---··
+    /// ···············
+    /// ```
+    name: titled_text,
+    origin: super::basic::titled_text,
+    create: |&self, title: &'a str, text: &[impl ToString]| (
+        title,
+        text,
+        self.theme.titled_text_title_fg(),
+        self.theme.titled_text_title_bg(),
+        self.theme.titled_text_text_fg(),
+        self.theme.titled_text_text_bg(),
+    )
+}
