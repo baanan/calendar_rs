@@ -1,4 +1,8 @@
-//! A set of widgets with the same style as [`basic`], but with colors determined by the theme
+//! A set of widgets with the same style as [`widgets::basic`], but with colors determined by the theme. 
+//!
+//! To use the widgets, create a new [`Themed`] and use its methods. Themes can be created by implementing [`self::Theme`] or [`themes::BasicTheme`], but there are default themes in [`themes::common`]. 
+//!
+//! For widget hover / activation support, use [`widgets::selectable`].
 //!
 //! # Example
 //!

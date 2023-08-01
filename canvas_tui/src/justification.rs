@@ -1,3 +1,5 @@
+//! Rules for determining where objects are drawn onto a [canvas](Canvas), see [`Just`]
+
 use std::fmt::Display;
 
 use crate::{num::{Vec2, Size}, canvas::Canvas, Error};

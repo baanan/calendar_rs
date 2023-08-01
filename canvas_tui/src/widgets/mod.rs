@@ -1,3 +1,10 @@
+//! Drawable objects that are too complex to be included in [`Canvas`]
+//!
+//! Examples include buttons, text boxes, or page titles. To draw one, use [`Canvas::draw`].
+//!
+//! Use [`basic`], [`themed`], or [`selectable`] for built-in widgets, or create new ones using
+//! [`widget!`]
+
 use crate::{prelude::*, num::Size};
 
 /// Constructs a [`Widget`] using the specified parameters
@@ -173,9 +180,9 @@ macro_rules! widget {
             // use the full name only if there are optionals
             // otherwise, just use impl Widget
             $crate::select!(($($($optional_name)*)?)
-                (#[cfg(doc)] pub fn [<$name:lower>]($($arg: $crate::rightmost!(($type) $(($from))?)),*) 
+                (#[cfg(doc)] $(#[$($attrs)*])* pub fn [<$name:lower>]($($arg: $crate::rightmost!(($type) $(($from))?)),*) 
                     -> impl Widget { })
-                (#[cfg(doc)] pub fn [<$name:lower>]($($arg: $crate::rightmost!(($type) $(($from))?)),*) 
+                (#[cfg(doc)] $(#[$($attrs)*])* pub fn [<$name:lower>]($($arg: $crate::rightmost!(($type) $(($from))?)),*) 
                     -> [<$name:camel>] { })
             );
 
@@ -245,9 +252,9 @@ macro_rules! widget {
                 // use the full name only if there are optionals
                 // otherwise, just use impl Widget
                 $crate::select!(($($($optional_name)*)?)
-                    (#[cfg(doc)] pub fn [<$name:lower>](&self, $($arg: $crate::rightmost!(($type) $(($from))?)),*) 
+                    (#[cfg(doc)] $(#[$($attrs)*])* pub fn [<$name:lower>](&self, $($arg: $crate::rightmost!(($type) $(($from))?)),*) 
                         -> impl Widget + '_ { })
-                    (#[cfg(doc)] pub fn [<$name:lower>](&self, $($arg: $crate::rightmost!(($type) $(($from))?)),*) 
+                    (#[cfg(doc)] $(#[$($attrs)*])* pub fn [<$name:lower>](&self, $($arg: $crate::rightmost!(($type) $(($from))?)),*) 
                         -> [<$name:camel>]<'_ $(, $($generic_name),*)?> { })
                 );
             }
@@ -355,7 +362,7 @@ macro_rules! optional_attr {
 }
 
 pub use widget;
-/// Some things that are useful for developing widgets
+/// Useful imports for developing widgets
 pub mod prelude {
     pub use super::widget;
     pub use crate::num::*;

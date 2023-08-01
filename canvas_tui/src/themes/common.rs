@@ -1,3 +1,14 @@
+//! Some default themes
+//!
+//! # List
+//!
+//! - [`Catppuccin`](catppuccin)
+//!     - [`Latte`](catppuccin::Latte)
+//!     - [`Frappe`](catppuccin::Frappe)
+//!     - [`Macchiato`](catppuccin::Macchiato)
+//!     - [`Mocha`](catppuccin::Mocha)
+//! - [`OneDark`]
+
 use crate::prelude::*;
 
 macro_rules! colors {

@@ -3,17 +3,18 @@ use num::Vec2;
 use thiserror::Error;
 use yansi::Paint;
 
-pub mod num;
+pub mod box_chars;
 pub mod canvas;
 pub mod color;
 pub mod justification;
+pub mod num;
 pub mod prelude;
-pub mod text;
-pub mod shapes;
 pub mod result;
-pub mod widgets;
+pub mod shapes;
 pub mod themes;
+pub mod widgets;
 
+/// A generic error for the crate
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     #[error("tried to access out of bounds position ({0}, {1})")]

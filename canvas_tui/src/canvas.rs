@@ -1,6 +1,10 @@
-use crate::{num::{Size, Pos}, justification::Just, prelude::box_chars, shapes::Grid, result::{DrawResult, DrawInfo}, widgets::Widget};
+//! A canvas of text and color that can be edited and drawn to the screen 
+//!
+//! Methods on [`Canvas`] can be used to add [text](Canvas::text), [basic](Canvas::rect) [shapes](Canvas::grid), and [widgets] to the screen
 
-use super::{color::Color, num::Vec2, shapes::{Rect, Single}};
+use crate::prelude::*;
+
+use super::{num::{Pos, Size}, shapes::{Rect, Single, Grid}};
 use array2d::Array2D;
 use itertools::iproduct;
 use crate::Error;
@@ -179,6 +183,19 @@ pub trait Canvas : Size + Sized {
     /// # Ok(()) }
     /// ```
     fn get(&self, pos: &impl Pos) -> Result<Cell, Error>;
+    /// Draws a [widget](Widget) onto the canvas using `justification`
+    ///
+    /// # Errors
+    ///
+    /// - If the widget doesn't have enough space
+    fn draw<W: Widget>(&mut self, justification: &Just, widget: W) -> DrawResult<Self::Output, Rect> {
+        let canvas = self.base_canvas()?;
+        let size = widget.size(canvas)?;
+        let pos = justification.get(canvas, &size)?;
+        canvas.catch(check_bounds(pos, size, canvas, W::name()))?;
+        widget.draw(&mut canvas.window_absolute(&pos, &size)?)?;
+        Ok(DrawInfo::rect(canvas, pos, size))
+    }
     /// Creates a window of size `size` onto the canvas at `pos`
     ///
     /// # Errors
@@ -204,6 +221,9 @@ pub trait Canvas : Size + Sized {
     fn window_absolute(&mut self, pos: &impl Pos, size: &impl Size) -> Result<Self::Window<'_>, Error>;
     /// Creates a window of size `size` onto the canvas at a position determined by `justification`
     ///
+    /// Windows are spans of a canvas that act as if they were a whole new canvas, able to be drawn
+    /// on and sent to other functions.
+    ///
     /// # Errors
     ///
     /// - If there is not enough room to create the window
@@ -215,13 +235,17 @@ pub trait Canvas : Size + Sized {
     /// # fn main() -> Result<(), Error> {
     /// let mut canvas = Basic::new(&(4, 4)); // marked by .
     /// let mut window = canvas.window(&Just::Centered, &(2, 2))?; // marked by -
+    ///
+    /// // notice this is at (1, 1)
     /// window.set(&(1, 1), '*')?;
     ///
+    /// // but it was set at (2, 2)
+    /// // because the window offsetted the text
     /// // ....
     /// // .--.
     /// // .-*.
-    /// // ....
-    /// assert_eq!(canvas.get(&(2, 2))?.text, '*');
+    /// // ....                                     
+    /// assert_eq!(canvas.get(&(2, 2))?.text, '*'); 
     /// # Ok(()) }
     /// ```
     fn window<'a>(&'a mut self, justification: &'a Just, size: &impl Size) -> Result<Self::Window<'_>, Error> {
@@ -252,52 +276,6 @@ pub trait Canvas : Size + Sized {
     /// ```
     fn when_error<F: Fn(&mut Self, &Error) -> Result<(), Error>>(self, callback: F) -> ErrorCatcher<Self, F> {
         ErrorCatcher { canvas: self, callback }
-    }
-    /// Prints the canvas without color to stdout
-    ///
-    /// # Errors
-    ///
-    /// - If the canvas has an outstading error (see [`DrawResult`])
-    fn print_monochrome(&self) -> Result<(), Error> {
-        self.error()?;
-        let canvas = Vec2::from_size(self);
-        for y in 0..canvas.height() {
-            for x in 0..canvas.width() {
-                print!("{}", self.get(&(x, y)).expect("in-bounds get to not fail").text);
-            }
-            println!();
-        }
-        Ok(())
-    }
-    /// Prints the canvas with color to stdout
-    ///
-    /// # Errors
-    ///
-    /// - If the canvas has an outstading error (see [`DrawResult`])
-    fn print(&self) -> Result<(), Error> {
-        self.error()?;
-        let canvas = Vec2::from_size(self);
-        for y in 0..canvas.height() {
-            for x in 0..canvas.width() {
-                let cell = self.get(&(x, y)).expect("in-bounds get to not fail");
-                print!("{}", Color::paint(cell.text, cell.foreground, cell.background));
-            }
-            println!();
-        }
-        Ok(())
-    }
-    /// Fills the canvas with `chr`
-    ///
-    /// # Errors
-    ///
-    /// - If the canvas has an outstading error (see [`DrawResult`])
-    fn fill(&mut self, chr: char) -> DrawResult<Self::Output, Rect> {
-        let canvas = self.base_canvas()?;
-        let size = Vec2::from_size(canvas);
-        for pos in iproduct!(0..size.width(), 0..size.height()) {
-            canvas.set(&pos, chr)?;
-        }
-        Ok(DrawInfo::rect(canvas, Vec2::ZERO, size))
     }
     /// Highlights a box of the canvas starting at `pos` and extending bottom right for `size`
     ///
@@ -453,7 +431,7 @@ pub trait Canvas : Size + Sized {
     }
     /// Draws a box onto the canvas using `justification` with size `size`
     ///
-    /// See `DrawResultMethods::draw_inside` to draw on the inside of the rect
+    /// See [`DrawResultMethods::draw_inside`] to draw on the inside of the rect
     ///
     /// # Errors
     ///
@@ -483,7 +461,7 @@ pub trait Canvas : Size + Sized {
     }
     /// Draws a box onto the canvas at `pos` with size `size`
     ///
-    /// See `DrawResultMethods::draw_inside` to draw on the inside of the rect
+    /// See [`DrawResultMethods::draw_inside`] to draw on the inside of the rect
     ///
     /// # Errors
     ///
@@ -539,7 +517,7 @@ pub trait Canvas : Size + Sized {
     /// Draws a box onto the canvas with justification `just`, grid dimensions `dims`, cell size
     /// `cell_size`, and using box chars `chars` 
     ///
-    /// See `DrawResultMethods::draw_inside` to draw on the inside of the grid
+    /// See [`DrawResultMethods::draw_inside`] to draw on the inside of the grid
     ///
     /// # Errors
     ///
@@ -582,7 +560,7 @@ pub trait Canvas : Size + Sized {
     /// Draws a box onto the canvas starting at `pos` with grid dimensions `dims`, cell size
     /// `cell_size`, and using box chars `chars` 
     ///
-    /// See `DrawResultMethods::draw_inside` to draw on the inside of the grid
+    /// See [`DrawResultMethods::draw_inside`] to draw on the inside of the grid
     ///
     /// # Errors
     ///
@@ -662,18 +640,51 @@ pub trait Canvas : Size + Sized {
         // so there's some overlap
         Ok(DrawInfo::grid(canvas, pos + 1, dims, cell_size + 2, Vec2::new(-1, -1)))
     }
-    /// Draws a [widget](Widget) onto the canvas using `justification`
+    /// Prints the canvas without color to stdout
     ///
     /// # Errors
     ///
-    /// - If the widget doesn't have enough space
-    fn draw<W: Widget>(&mut self, justification: &Just, widget: W) -> DrawResult<Self::Output, Rect> {
+    /// - If the canvas has an outstading error (see [`DrawResult`])
+    fn print_monochrome(&self) -> Result<(), Error> {
+        self.error()?;
+        let canvas = Vec2::from_size(self);
+        for y in 0..canvas.height() {
+            for x in 0..canvas.width() {
+                print!("{}", self.get(&(x, y)).expect("in-bounds get to not fail").text);
+            }
+            println!();
+        }
+        Ok(())
+    }
+    /// Prints the canvas with color to stdout
+    ///
+    /// # Errors
+    ///
+    /// - If the canvas has an outstading error (see [`DrawResult`])
+    fn print(&self) -> Result<(), Error> {
+        self.error()?;
+        let canvas = Vec2::from_size(self);
+        for y in 0..canvas.height() {
+            for x in 0..canvas.width() {
+                let cell = self.get(&(x, y)).expect("in-bounds get to not fail");
+                print!("{}", Color::paint(cell.text, cell.foreground, cell.background));
+            }
+            println!();
+        }
+        Ok(())
+    }
+    /// Fills the canvas with `chr`
+    ///
+    /// # Errors
+    ///
+    /// - If the canvas has an outstading error (see [`DrawResult`])
+    fn fill(&mut self, chr: char) -> DrawResult<Self::Output, Rect> {
         let canvas = self.base_canvas()?;
-        let size = widget.size(canvas)?;
-        let pos = justification.get(canvas, &size)?;
-        canvas.catch(check_bounds(pos, size, canvas, W::name()))?;
-        widget.draw(&mut canvas.window_absolute(&pos, &size)?)?;
-        Ok(DrawInfo::rect(canvas, pos, size))
+        let size = Vec2::from_size(canvas);
+        for pos in iproduct!(0..size.width(), 0..size.height()) {
+            canvas.set(&pos, chr)?;
+        }
+        Ok(DrawInfo::rect(canvas, Vec2::ZERO, size))
     }
     /// Gets any errors the canvas has
     ///
@@ -862,8 +873,7 @@ impl<'a, C: Canvas> Canvas for Window<'a, C> {
 
 /// A canvas wrapped with an error catcher callback
 ///
-/// See [`Canvas::when_error`] and
-/// [`DrawResultMethods::discard_result`](crate::result::DrawResultMethods::discard_result)
+/// See [`Canvas::when_error`] and [`DrawResultMethods::discard_result`]
 pub struct ErrorCatcher<C: Canvas, F: Fn(&mut C, &Error) -> Result<(), Error>> {
     canvas: C,
     callback: F,

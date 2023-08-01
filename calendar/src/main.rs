@@ -93,12 +93,12 @@ fn main() -> Result<(), Error> {
     #[allow(unused_variables)]
     let highlight_text = Color::new(48, 52, 70);
 
-    let widgets = widgets::Selectable::num(Frappe.highlighted(rosewater), 1, false);
-    let mut canvas = Basic::filled_with(&(15, 9), ' ', Frappe::text(), Frappe::base());
+    let widgets = widgets::Selectable::num(Frappe.highlighted(rosewater), 1, true);
+    let mut canvas = Basic::filled_with(&(15, 7), '·', Frappe::text(), Frappe::base());
 
     canvas
-        .draw(&Just::CenteredOnRow(1), widgets.title("Preferences"))
-        .draw(&Just::CenteredOnRow(3), widgets.titled_text("Theme", &["Latte", "Frappe", "Macchiato", "Mocha"], 0..))?;
+        // .draw(&Just::CenteredOnRow(1), widgets.title("Preferences"))
+        .draw(&Just::CenteredOnRow(1), widgets.titled_text(0.., "Theme", &["Latte", "Frappe", "Macchiato", "Mocha"]).max_width(7))?;
 
     canvas.print()?;
 

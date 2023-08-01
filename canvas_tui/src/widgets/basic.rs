@@ -1,6 +1,6 @@
 //! A set of basic widgets with no set theming
 //!
-//! For basic theming support with the same style, see [`themed`]
+//! For basic theming support with the same style, see [`widgets::themed`]
 //!
 //! # Example
 //!
@@ -47,9 +47,11 @@ widget! {
         Ok(Vec2::new(len + 2, 1))
     },
     draw: |self, canvas| {
-        canvas.text(&Just::Centered, &self.text)
-            .grow_profile(&(1, 0))
-            .colored(self.foreground, self.background)
+        canvas
+            .fill(' ')
+            .text(&Just::Centered, &self.text)
+                .grow_profile(&(1, 0))
+                .colored(self.foreground, self.background)
             .discard_info()
     },
 }

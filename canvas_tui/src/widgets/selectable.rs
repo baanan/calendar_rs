@@ -1,5 +1,8 @@
-//! A selectable set of widgets, see [`Selectable`]. Any theme used must impl [`SelectableTheme`]
-//! to define colors for selected items
+//! A selectable set of widgets, showing different colors whether they are hovered over or activated. 
+//!
+//! To use the widgets, create a new [`Selectable`] and use its methods. Themes can be created by implementing [`self::SelectableTheme`] or [`themes::BasicTheme`], but there are default themes in [`themes::common`].  
+//!
+//! If you don't need selectable widgets, use [`widgets::themed`].
 //!
 //! # Example
 //!
@@ -68,7 +71,7 @@ use crate::prelude::*;
 use widgets::prelude::*;
 use widgets::themed::Theme;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Selection {
     Deselected,
     Selected,
@@ -137,6 +140,10 @@ impl<V: PartialEq, T: SelectableTheme> Selectable<V, T> {
         }
     }
 
+    pub fn activated(&self, val: &V) -> bool {
+        self.selected(val) == Selection::Activated
+    }
+
     get_color!(button_fg);
     get_color!(button_bg);
     get_color!(titled_text_text_fg);
@@ -189,44 +196,100 @@ widget! {
 
 widget! {
     parent: Selectable<V: PartialEq, T: SelectableTheme>,
+    /// A `title` with rows of `text` underneath
+    ///
+    /// # Style
+    ///
+    /// The width adjusts to the widest line of text or `max_width` if it is hit
+    ///
+    /// ```text
+    /// ···············
+    /// ··###Theme###··
+    /// ··---Latte---··
+    /// ··--Frappe---··
+    /// ··-Macchiato-··
+    /// ··---Mocha---··
+    /// ···············
+    /// ```
     name: titled_text,
     args: (
-        title: String [impl Into<String> as into],
-        text: Vec<String> [&[impl ToString] > .iter().map(ToString::to_string).collect()],
         selections: Vec<V> [impl IntoIterator<Item = V> > .into_iter().take(text.len()).collect()],
+        title: String [&str as to_string],
+        text: Vec<String> [&[impl ToString] > .iter().map(ToString::to_string).collect()],
+    ),
+    optionals: (
+        max_width: Option<usize>,
     ),
     size: |&self, _| {
-        let text_width = self.text.iter()
+        let mut text_width = self.text.iter()
             .chain(std::iter::once(&self.title))
             .map(|string| string.chars().count())
             .max()
             .expect("the iterator has at least one element: the title");
+        if let Some(max_width) = self.max_width {
+            text_width = text_width.min(max_width - 2);
+        }
         let text_width: isize = text_width.try_into()
             .map_err(|_| Error::TooLarge("text length", text_width))?;
+
         let lines = self.text.len();
         let lines: isize = lines.try_into()
             .map_err(|_| Error::TooLarge("lines of titled text", lines))?;
+
         Ok(Vec2::new(text_width + 2, lines + 1))
     },
     draw: |self, canvas| {
         let theme = &self.parent.theme;
         let width = canvas.width();
+        // give the text some padding on the sides
+        let max_width = self.max_width.map(|max| max - 2);
+
+        // empty canvas
+        canvas.fill(' ')?;
+
         // title
-        canvas.text(&(Just::CenteredOnRow(0)), &self.title)
+        let title = truncate(&self.title, max_width, false);
+        canvas.text(&(Just::CenteredOnRow(0)), &title)
             .expand_profile(width, None, GrowFrom::CenterPreferRight)
             .colored(
                 theme.titled_text_title_fg(), 
                 theme.titled_text_title_bg()
             )?;
-        // each line of text
+
+        // text
         for ((text, line), selection) in self.text.iter().zip(1..).zip(self.selections) {
-            canvas.text(&Just::CenteredOnRow(line), text)
+            let text = truncate(text, max_width, self.parent.activated(&selection));
+            canvas.text(&Just::CenteredOnRow(line), &text)
                 .expand_profile(width, None, GrowFrom::Center)
                 .colored(
                     self.parent.titled_text_text_fg(&selection),
                     self.parent.titled_text_text_bg(&selection),
                 )?;
         }
+
         Ok(())
     },
+}
+
+/// Truncate `string` to `max_width` from the start if `!activated` or from the end if `activated`
+fn truncate(string: &str, max_width: Option<usize>, activated: bool) -> String {
+    if let Some(max_width) = max_width {
+        if string.len() > max_width {
+            return truncate_unchecked(string, max_width, activated);
+        }
+    }
+    string.to_string()
+}
+
+/// Truncate `string` to `max_width` from the start if `!activated` or from the end if `activated`
+///
+/// # Panics
+///
+/// - If the `string`'s length is smaller than `max_width`
+fn truncate_unchecked(string: &str, max_width: usize, activated: bool) -> String {
+    if activated {
+        string[(string.len() - max_width)..].to_string()
+    } else {
+        string[..max_width].to_string()
+    }
 }

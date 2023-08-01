@@ -1,4 +1,16 @@
+//! Utilities based on the result of something drawn to a canvas. See [`DrawResultMethods`].
+//!
+//! - [`DrawResult`] implements [`Canvas`] based on its underlying canvas, propagating errors if
+//! they're encountered. 
+//! - [`Canvas::when_error`] can be used to automatically recover from an error,
+//! which then [`discard_result`](DrawResultMethods::discard_result) or
+//! [`log_result`](DrawResultMethods::log_result) can be helpful. 
+//! - Other methods are provided to modify the most recently drawn item such as
+//! [`colored`](DrawResultMethods::colored) or [`draw_inside`](DrawResultMethods::draw_inside)
+
 use std::ops::{Deref, DerefMut};
+
+use log::{error, Level};
 
 use crate::Error;
 use crate::color::Color;
@@ -10,7 +22,7 @@ use super::num::{Pos, Size, Vec2};
 
 /// Holds the current canvas, as well as extra info from the last drawn object
 ///
-/// Also can [dereference](Deref) into the inner canvas
+/// Can also [dereference](Deref) into the inner canvas
 #[derive(Debug)]
 pub struct DrawInfo<'c, C: Canvas<Output = C>, S: DrawnShape> {
     output: &'c mut C,
@@ -86,6 +98,15 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DerefMut for DrawInfo<'c, C, S> {
 pub type DrawResult<'c, C, S> = Result<DrawInfo<'c, C, S>, Error>;
 
 /// Extra methods that can be run on a [`DrawResult`]
+///
+/// - Methods such as [`colored`](Self::colored) or [`filled_with`](Self::filled_with) can be used to
+/// modify the last drawn object.
+/// - Other methods such as [`grow_profile`](Self::grow_profile) or [`expand_profile`](Self::expand_profile) can be used to modify the stored profile of the last drawn object, which allows the previous methods to color or fill different areas of the canvas
+/// - Some methods are common mixtures of the previous two such as
+/// [`fill_inside`](Self::fill_inside) (equivalent to calling [`inside`](Self::inside) then
+/// [`filled_with`](Self::filled_with))
+/// - The rest allow the user to discard the result if it is already dealt with through
+/// [`Canvas::when_error`]
 pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// Colors the last drawn object with `foreground` and `background`
     ///
@@ -243,7 +264,7 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     fn inside(self) -> DrawResult<'c, C, S::Grown>;
     /// Uses `drawer` to draw on the inside of the profile
     ///
-    /// For [`Single`] and [`Rect`], the drawer is just given a window into the profile. 
+    /// For [`Single`] and [`Rect`], the drawer is just given a [window](Canvas::window) into the profile. 
     /// For [`Grid`], the drawer is run on each cell and as such takes in a cell position and the window.
     /// See [`DrawnShape::draw`] for more information
     ///
@@ -303,6 +324,10 @@ pub trait DrawResultMethods<'c, C: Canvas<Output = C>, S: DrawnShape>: Sized {
     /// Discards the info inside, returning only the possible error
     #[allow(clippy::missing_errors_doc)]
     fn discard_info(self) -> Result<(), Error>;
+    /// Logs the error at [`Level::Error`] if it exists and discards the result
+    fn log_result(self);
+    /// Logs the error at `level` if it exists and discards the result
+    fn log_result_with(self, level: Level);
 }
 
 impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for DrawResult<'c, C, S> {
@@ -353,6 +378,18 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for D
     }
 
     fn discard_info(self) -> Result<(), Error> { self.map(|_| ()) }
+
+    fn log_result(self) {
+        if let Err(err) = self {
+            error!("{}", err);
+        }
+    }
+
+    fn log_result_with(self, level: Level) {
+        if let Err(err) = self {
+            log::log!(level, "{}", err);
+        }
+    }
 }
 
 impl<'c, C: Canvas<Output = C>, S: DrawnShape> Size for DrawResult<'c, C, S> {

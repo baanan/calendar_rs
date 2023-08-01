@@ -1,3 +1,5 @@
+//! Default themes for [widgets]
+
 use crate::{prelude::*, widgets::{Theme, SelectableTheme}};
 
 pub mod common;
@@ -10,8 +12,10 @@ pub use common::*;
 ///
 /// # Background order
 ///
+/// - Surface2
+/// - Surface1
 /// - Surface (above)
-/// - Base (basic background)
+/// - Base
 /// - Mantle (below)
 /// - Crust
 pub trait BasicTheme {

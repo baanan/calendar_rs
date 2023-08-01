@@ -1,3 +1,5 @@
+//! Various utilites for interacting with [positions](Pos) and [sizes](Size). See [`Vec2`].
+
 use std::{ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign, Range}, fmt::Display, iter::Map};
 
 use itertools::{Product, iproduct};

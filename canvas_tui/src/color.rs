@@ -1,3 +1,5 @@
+//! Basic colors and coloring support, see [`Color`]
+
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,8 +1,15 @@
+//! Various shapes that can represent items drawn to the canvas
+//!
+//! These are used inside [`DrawInfo`] to store the last drawn item for [`DrawResultMethods`]
+
 use crate::{prelude::*, canvas, result::{DrawResult, DrawInfo}};
 use super::num::{Size, Vec2};
 
+/// A shape that was just drawn to the canvas
 pub trait DrawnShape: Sized {
+    /// A grown version of this shape
     type Grown: DrawnShape;
+    /// A type of boxed function used for drawing to the canvas, see [`draw`](Self::draw)
     type Drawer<C: Canvas<Output = C>>;
     /// Grows the shape by `size`
     fn grow(&self, size: &impl Size) -> Self::Grown;
@@ -42,6 +49,8 @@ pub trait DrawnShape: Sized {
     fn draw<C: Canvas<Output = C>>(self, canvas: &mut C, drawer: Self::Drawer<C>) -> DrawResult<C, Self>;
 }
 
+/// Determines how a shape should be grown to expand to a certain width or height in
+/// [`DrawnShape::expand_to`]
 pub enum GrowFrom {
     Center,
     CenterPreferRight,
@@ -69,6 +78,9 @@ impl GrowFrom {
     }
 }
 
+/// A single position
+///
+/// Used in [`Canvas::set`] or [`Canvas::highlight`]
 #[derive(Debug)]
 pub struct Single {
     pub pos: Vec2
@@ -107,6 +119,9 @@ impl DrawnShape for Single {
     }
 }
 
+/// A rectangle
+///
+/// The shape for most items drawn to the canvas including [`text`](Canvas::text), [`rect`](Canvas::rect), and [widgets](Canvas::draw)
 #[derive(Debug)]
 pub struct Rect {
     pub pos: Vec2,
@@ -147,6 +162,9 @@ impl DrawnShape for Rect {
     }
 }
 
+/// A grid including its dimensions, a spacing between each cell, and the size of each cell
+///
+/// Only used in [`Canvas::grid`]
 #[derive(Debug)]
 pub struct Grid {
     pub pos: Vec2,
