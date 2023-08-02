@@ -268,6 +268,8 @@ macro_rules! widget {
             }
         }       
     };
+    // widgets that are based on other widgets,
+    // just changing around the arguments
     (
         // optional doc comments
         $(#[$($attrs:tt)*])*
@@ -275,17 +277,23 @@ macro_rules! widget {
         name: $name:ident,
         // the path of the original widget's function (can't be a method currently)
         origin: $origin:path,
+        // the path of the original struct to use as the return value (if it uses optional values)
+        $(struct_path: $struct_name:ty,)?
         // the new widget's signature + the arguments passed into the original widget
         // note: all the arguments have to have types
         create: |$($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)?
     ) => {
         paste::paste! {
-            #[must_use]
-            #[allow(clippy::redundant_field_names)]
-            $(#[$($attrs)*])*
-            pub fn [<$name:lower>]($($param: $type),*) -> impl Widget + '_ {
-                $origin($($arg),*)
-            }
+            $crate::select_return_value!(
+                ($($struct_name)?)
+                (impl Widget + '_)
+                #[must_use]
+                #[allow(clippy::redundant_field_names)]
+                $(#[$($attrs)*])*
+                pub fn [<$name:lower>]($($param: $type),*) -> _ {
+                    $origin($($arg),*)
+                }
+            );
         }
     };
     (
@@ -297,6 +305,8 @@ macro_rules! widget {
         name: $name:ident,
         // the path of the original widget's function (can't be a method currently)
         origin: $origin:path,
+        // the path of the original struct to use as the return value (if it uses optional values)
+        $(struct_path: $struct_name:ty,)?
         // the new widget's signature + the arguments passed into the original widget
         // the first argument is &self, referring to the parent
         // note: all the arguments have to have types
@@ -304,12 +314,72 @@ macro_rules! widget {
     ) => {
         paste::paste! {
             impl$(< $($generic_name: $generic_value),* >)? $parent$(< $($generic_name),* >)? {
+                $crate::select_return_value!(
+                    ($($struct_name)?)
+                    (impl Widget + '_)
+                    #[must_use]
+                    #[allow(clippy::redundant_field_names)]
+                    $(#[$($attrs)*])*
+                    pub fn [<$name:lower>]<'a>(&'a $create_self, $($param: $type),*) -> _ {
+                        $origin($($arg),*)
+                    }
+                );
+            }
+        }
+    };
+    // widgets that are based on other widgets,
+    // but that need to do some extra operations on the input arguments
+    // so they just call the origin function themselves inside a block
+    (
+        // optional doc comments
+        $(#[$($attrs:tt)*])*
+        // the name of the created and original widget
+        name: $name:ident,
+        // the path of the original struct to use as the return value (if it uses optional values)
+        $(struct_path: $struct_name:ty,)?
+        // the new widget's signature + the arguments passed into the original widget
+        // note: all the arguments have to have types
+        create: |$($param:ident: $type:ty),*| { $($stmt:stmt);* } $(,)?
+    ) => {
+        paste::paste! {
+            $crate::select_return_value!(
+                ($($struct_name)?)
+                (impl Widget + '_)
                 #[must_use]
                 #[allow(clippy::redundant_field_names)]
                 $(#[$($attrs)*])*
-                pub fn [<$name:lower>]<'a>(&'a $create_self, $($param: $type),*) -> impl Widget + '_ {
-                    $origin($($arg),*)
+                pub fn [<$name:lower>]($($param: $type),*) -> _ {
+                    $($stmt);*
                 }
+            );
+        }
+    };
+    (
+        // the parent struct that the widget becomes a method of
+        parent: $parent:ident$(< $($generic_name:ident: $generic_value:ty),* >)?,
+        // optional doc comments
+        $(#[$($attrs:tt)*])*
+        // the name of the created and original widget
+        name: $name:ident,
+        // the path of the original struct to use as the return value (if it uses optional values)
+        $(struct_path: $struct_name:ty,)?
+        // the new widget's signature + the arguments passed into the original widget
+        // the first argument is &self, referring to the parent
+        // note: all the arguments have to have types
+        create: |&$create_self:ident, $($param:ident: $type:ty),*| { $($stmt:stmt);* } $(,)? 
+    ) => {
+        paste::paste! {
+            impl$(< $($generic_name: $generic_value),* >)? $parent$(< $($generic_name),* >)? {
+                $crate::select_return_value!(
+                    ($($struct_name)?)
+                    (impl Widget + '_)
+                    #[must_use]
+                    #[allow(clippy::redundant_field_names)]
+                    $(#[$($attrs)*])*
+                    pub fn [<$name:lower>]<'a>(&'a $create_self, $($param: $type),*) -> _ {
+                        $($stmt)*
+                    }
+                );
             }
         }
     };
@@ -344,6 +414,19 @@ macro_rules! select {
     (($($cond:tt)*) ($($left:tt)*) ($($right:tt)*)) => { $($right)* };
     (!() ($($left:tt)*) ($($right:tt)*)) => { $($right)* };
     (!($($cond:tt)*) ($($left:tt)*) ($($right:tt)*)) => { $($left)* };
+}
+
+// use the left return value if it exists,
+// otherwise use the right return value
+#[doc(hidden)]
+#[macro_export]
+macro_rules! select_return_value {
+    (() ($($right:tt)*) $(#[$attr:meta])* $vis:vis fn $name:ident$(<$($lifetimes:lifetime),*>)?($($args:tt)*) -> _ { $($body:tt)* }) => {
+        $(#[$attr])* $vis fn $name$(<$($lifetimes),*>)?($($args)*) -> $($right)* { $($body)* }
+    };
+    (($($left:tt)*) ($($right:tt)*) $(#[$attr:meta])* $vis:vis fn $name:ident$(<$($lifetimes:lifetime),*>)?($($args:tt)*) -> _ { $($body:tt)* }) => {
+        $(#[$attr])* $vis fn $name$(<$($lifetimes),*>)?($($args)*) -> $($left)* { $($body)* }
+    };
 }
 
 // just used in the above macro

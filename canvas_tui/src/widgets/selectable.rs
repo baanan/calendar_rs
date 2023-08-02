@@ -31,6 +31,8 @@
 //!     # fn titled_text_title_bg(&self) -> Color { todo!() }
 //!     # fn titled_text_text_fg(&self) -> Color { todo!() }
 //!     # fn titled_text_text_bg(&self) -> Color { todo!() }
+//!     # fn rolling_selection_fg(&self) -> Color { todo!() }
+//!     # fn rolling_selection_bg(&self) -> Color { todo!() }
 //! }
 //!
 //! impl SelectableTheme for Frappe {
@@ -39,10 +41,16 @@
 //!     fn button_fg_hover(&self) -> Color { Self::text() }
 //!     fn button_fg_activated(&self) -> Color { Self::special_text() }
 //!     // other colors omitted
+//!     # fn highlight_fg_hover(&self) -> Color { todo!() }
+//!     # fn highlight_fg_activated(&self) -> Color { todo!() }
 //!     # fn titled_text_text_fg_hover(&self) -> Color { todo!() }
 //!     # fn titled_text_text_fg_activated(&self) -> Color { todo!() }
 //!     # fn titled_text_text_bg_hover(&self) -> Color { todo!() }
 //!     # fn titled_text_text_bg_activated(&self) -> Color { todo!() }
+//!     # fn rolling_selection_fg_hover(&self) -> Color { todo!() }
+//!     # fn rolling_selection_fg_activated(&self) -> Color { todo!() }
+//!     # fn rolling_selection_bg_hover(&self) -> Color { todo!() }
+//!     # fn rolling_selection_bg_activated(&self) -> Color { todo!() }
 //! }
 //!
 //! fn main() -> Result<(), Error> {
@@ -52,8 +60,8 @@
 //!     let mut canvas = Basic::new(&(7, 3));
 //!     // each different widget has a different selector, which gets tested against
 //!     canvas
-//!         .draw(&Just::CenteredOnRow(1), widgets.button(1, "foo"))
-//!         .draw(&Just::CenteredOnRow(2), widgets.button(2, "bar"))?;
+//!         .draw(&Just::CenteredOnRow(1), widgets.button(&1, "foo"))
+//!         .draw(&Just::CenteredOnRow(2), widgets.button(&2, "bar"))?;
 //!
 //!     // ·······
 //!     // ·-foo-· (highlight represented by -)
@@ -78,7 +86,7 @@ pub enum Selection {
     Activated,
 }
 
-// creates the necessary methods in the trait as well as a select_ method
+/// creates the necessary methods in the trait as well as a select_ method
 macro_rules! selectable {
     ($id:ident) => {
         paste::paste! {
@@ -95,8 +103,8 @@ macro_rules! selectable {
     };
 }
 
-// creates a method in the struct that gets the color based on the selected item
-macro_rules! get_color {
+/// creates a method in the struct that gets the color based on the selected item
+macro_rules! private_get_color {
     ($id:ident) => {
         paste::paste! {
             fn $id(&self, selection: &V) -> Color {
@@ -106,13 +114,16 @@ macro_rules! get_color {
     };
 }
 
-// both theme and this are reexported in themed and often used together
-#[allow(clippy::module_name_repetitions)] 
+#[allow(clippy::module_name_repetitions)] // both theme and this are reexported in themed and often used together
 pub trait SelectableTheme: Theme {
+    selectable!(highlight_fg);
+
     selectable!(button_fg);
     selectable!(button_bg);
     selectable!(titled_text_text_fg);
     selectable!(titled_text_text_bg);
+    selectable!(rolling_selection_fg);
+    selectable!(rolling_selection_bg);
 }
 
 pub struct Selectable<V: PartialEq, T: SelectableTheme> {
@@ -144,10 +155,12 @@ impl<V: PartialEq, T: SelectableTheme> Selectable<V, T> {
         self.selected(val) == Selection::Activated
     }
 
-    get_color!(button_fg);
-    get_color!(button_bg);
-    get_color!(titled_text_text_fg);
-    get_color!(titled_text_text_bg);
+    private_get_color!(button_fg);
+    private_get_color!(button_bg);
+    private_get_color!(titled_text_text_fg);
+    private_get_color!(titled_text_text_bg);
+    private_get_color!(rolling_selection_fg);
+    private_get_color!(rolling_selection_bg);
 }
 
 widget! {
@@ -187,10 +200,10 @@ widget! {
     /// See the [outer module's example](self)
     name: button,
     origin: super::basic::highlighted_text,
-    create: |&self, selection: V, text: &'a str| (
+    create: |&self, selection: &V, text: &'a str| (
         text,
-        self.button_fg(&selection),
-        self.button_bg(&selection),
+        self.button_fg(selection),
+        self.button_bg(selection),
     )
 }
 
@@ -297,4 +310,20 @@ widget! {
 
         Ok(())
     },
+}
+
+widget! {
+    parent: Selectable<V: PartialEq, T: SelectableTheme>,
+    name: rolling_selection,
+    struct_path: super::basic::RollingSelection,
+    create: |&self, selection: &V, text: &'a str, width: impl Into<Option<usize>>| {
+        let width = width.into();
+        super::basic::rolling_selection(
+            // truncate early to truncate from the end if it's activated
+            truncate(text, width.map(|val| val - 6), self.activated(selection)),
+            width,
+            self.rolling_selection_fg(selection),
+            self.rolling_selection_bg(selection),
+        )
+    }
 }

@@ -38,7 +38,7 @@ widget! {
     #[doc(hidden)]
     name: highlighted_text,
     args: (
-        text: String [impl Into<String> as into],
+        text: String [impl ToString as to_string],
         foreground: Option<Color> [impl Into<Option<Color>> as into],
         background: Option<Color> [impl Into<Option<Color>> as into],
     ),
@@ -146,8 +146,10 @@ widget! {
     args: (
         title: String [impl ToString as to_string],
         text: Vec<String> [&[impl ToString] > .iter().map(ToString::to_string).collect()],
-        title_fg: Color, title_bg: Color,
-        text_fg: Color, text_bg: Color,
+        title_fg: Option<Color> [impl Into<Option<Color>> as into],
+        title_bg: Option<Color> [impl Into<Option<Color>> as into],
+        text_fg:  Option<Color> [impl Into<Option<Color>> as into],
+        text_bg:  Option<Color> [impl Into<Option<Color>> as into],
     ),
     optionals: (
         max_width: Option<usize>,
@@ -198,4 +200,58 @@ pub(super) fn titled_text_bounds(title: &String, text: &Vec<String>, max_width: 
         .map_err(|_| Error::TooLarge("lines of titled text", lines))?;
 
     Ok(Vec2::new(text_width + 2, lines + 1))
+}
+
+widget! {
+    /// A rolling selection of values
+    ///
+    /// # Optionals
+    ///
+    /// - [`at_start: bool`](RollingSelection::at_start) (default: false)
+    /// - [`at_end: bool`](RollingSelection::at_start) (default: false)
+    ///
+    /// # Style
+    ///
+    /// ```text
+    /// ···········
+    /// · ← foo → ·
+    /// ···········
+    /// ```
+    name: rolling_selection,
+    args: (
+        text: String [impl ToString as to_string],
+        // the width is used much more often than an optional would require
+        width: Option<usize> [impl Into<Option<usize>> as into],
+        foreground: Option<Color> [impl Into<Option<Color>> as into],
+        background: Option<Color> [impl Into<Option<Color>> as into],
+    ),
+    optionals: (
+        at_start: Option<bool>,
+        at_end: Option<bool>,
+    ),
+    size: |&self, _| {
+        let width = self.width.unwrap_or_else(|| self.text.chars().count() + 6);
+        let width: isize = width.try_into()
+            .map_err(|_| Error::TooLarge("text length", width))?;
+        Ok(Vec2::new(width, 1))
+    },
+    draw: |self, canvas| {
+        assert!(!self.width.is_some_and(|width| width < 6), 
+            "rolling selection width must be at least 6");
+
+        let text = truncate(&self.text, self.width.map(|val| val - 6), false);
+        canvas
+            .fill(' ').colored(self.foreground, self.background)
+            .text(&Just::Centered, &text)?;
+
+        if !self.at_start.unwrap_or_default() {
+            canvas.text(&Just::CenterLeft, "←")?;
+        }
+
+        if !self.at_end.unwrap_or_default() {
+            canvas.text(&Just::CenterRight, "→")?;
+        }
+
+        Ok(())
+    },
 }

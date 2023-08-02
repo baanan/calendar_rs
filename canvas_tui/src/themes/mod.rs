@@ -34,6 +34,8 @@ pub trait BasicTheme {
 
     /// A color to contrast against highlight colors
     #[must_use] fn highlight_fg() -> Color { Self::base() }
+    /// A version of [`highlight_fg`](Self::highlight_fg) for hovering
+    #[must_use] fn highlight_fg_hover() -> Color { Self::mantle() }
 
     #[must_use] fn button_fg() -> Color { Self::subtext() }
     #[must_use] fn button_bg() -> Color { Self::surface() }
@@ -63,28 +65,37 @@ impl<T: BasicTheme> Theme for T {
     fn title_fg(&self) -> Color { Self::text() }
     fn title_bg(&self) -> Color { Self::surface() }
 
-    fn button_bg(&self) -> Color { Self::button_bg() }
     fn button_fg(&self) -> Color { Self::button_fg() }
+    fn button_bg(&self) -> Color { Self::button_bg() }
 
     fn titled_text_title_fg(&self) -> Color { Self::text() }
     fn titled_text_title_bg(&self) -> Color { Self::surface2() }
 
     fn titled_text_text_fg(&self) -> Color { Self::text() }
     fn titled_text_text_bg(&self) -> Color { Self::text_bg() }
+
+    fn rolling_selection_fg(&self) -> Color { Self::button_fg() }
+    fn rolling_selection_bg(&self) -> Color { Self::button_bg() }
 }
 
 impl<T: BasicTheme> SelectableTheme for T {
+    fn highlight_fg_hover(&self) -> Color { Self::highlight_fg_hover() }
+    fn highlight_fg_activated(&self) -> Color { Self::highlight_fg_hover() }
+
     fn button_fg_hover(&self) -> Color { Self::hover_fg() }
     fn button_fg_activated(&self) -> Color { self.button_fg_hover() }
-
     fn button_bg_hover(&self) -> Color { Self::button_bg() }
     fn button_bg_activated(&self) -> Color { self.button_bg_hover() }
 
     fn titled_text_text_fg_hover(&self) -> Color { Self::text() }
     fn titled_text_text_fg_activated(&self) -> Color { Self::hover_fg() }
-
     fn titled_text_text_bg_hover(&self) -> Color { Self::hover_bg() }
     fn titled_text_text_bg_activated(&self) -> Color { self.titled_text_text_bg_hover() }
+
+    fn rolling_selection_fg_hover(&self) -> Color { Self::hover_fg() }
+    fn rolling_selection_fg_activated(&self) -> Color { self.button_fg_hover() }
+    fn rolling_selection_bg_hover(&self) -> Color { Self::button_bg() }
+    fn rolling_selection_bg_activated(&self) -> Color { self.button_bg_hover() }
 }
 
 pub struct WithHighlight<T: Theme + SelectableTheme> {
@@ -100,27 +111,36 @@ impl<T: Theme + SelectableTheme> Theme for WithHighlight<T> {
     fn title_fg(&self) -> Color { self.highlight_fg() }
     fn title_bg(&self) -> Color { self.highlight }
 
-    fn button_bg(&self) -> Color { self.theme.button_bg() }
     fn button_fg(&self) -> Color { self.theme.button_fg() }
+    fn button_bg(&self) -> Color { self.theme.button_bg() }
 
     fn titled_text_title_fg(&self) -> Color { self.highlight_fg() }
     fn titled_text_title_bg(&self) -> Color { self.highlight }
 
     fn titled_text_text_fg(&self) -> Color { self.theme.titled_text_text_fg() }
     fn titled_text_text_bg(&self) -> Color { self.theme.titled_text_text_bg() }
+
+    fn rolling_selection_fg(&self) -> Color { self.highlight_fg() }
+    fn rolling_selection_bg(&self) -> Color { self.highlight }
 }
 
 impl<T: Theme + SelectableTheme> SelectableTheme for WithHighlight<T> {
+    fn highlight_fg_hover(&self) -> Color { self.theme.highlight_fg_hover() }
+    fn highlight_fg_activated(&self) -> Color { self.theme.highlight_fg_activated() }
+
     fn button_fg_hover(&self) -> Color { self.theme.button_fg_hover() }
     fn button_fg_activated(&self) -> Color { self.theme.button_fg_activated() }
-
     fn button_bg_hover(&self) -> Color { self.theme.button_bg_hover() }
     fn button_bg_activated(&self) -> Color { self.theme.button_bg_activated() }
 
     fn titled_text_text_fg_hover(&self) -> Color { self.theme.titled_text_text_fg_hover() }
     fn titled_text_text_fg_activated(&self) -> Color { self.highlight }
-
     fn titled_text_text_bg_hover(&self) -> Color { self.theme.titled_text_text_bg_hover() }
     fn titled_text_text_bg_activated(&self) -> Color { self.theme.titled_text_text_bg_activated() }
+
+    fn rolling_selection_fg_hover(&self) -> Color { self.highlight_fg_hover() }
+    fn rolling_selection_fg_activated(&self) -> Color { self.highlight_fg_activated() }
+    fn rolling_selection_bg_hover(&self) -> Color { self.highlight }
+    fn rolling_selection_bg_activated(&self) -> Color { self.highlight }
 }
 

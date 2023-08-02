@@ -93,12 +93,14 @@ fn main() -> Result<(), Error> {
     #[allow(unused_variables)]
     let highlight_text = Color::new(48, 52, 70);
 
-    let widgets = widgets::Selectable::num(Frappe.highlighted(rosewater), 1, true);
-    let mut canvas = Basic::filled_with(&(15, 7), ' ', Frappe::text(), Frappe::base());
+    let widgets = widgets::Selectable::num(Frappe.highlighted(rosewater), 4, true);
+    let mut canvas = Basic::filled_with(&(15, 11), ' ', Frappe::text(), Frappe::base());
 
+    #[allow(clippy::cast_possible_wrap)]
     canvas
-        // .draw(&Just::CenteredOnRow(1), widgets.title("Preferences"))
-        .draw(&Just::CenteredOnRow(1), widgets.titled_text(0.., "Theme", &["Latte", "Frappe", "Macchiato", "Mocha"]))?;
+        .draw(&Just::CenteredOnRow(1), widgets.title("Preferences"))
+        .draw(&Just::CenteredOnRow(3), widgets.titled_text(0.., "Theme", &["Latte", "Frappe", "Macchiato", "Mocha"]))
+        .draw(&Just::CenteredOnRow(9), widgets.rolling_selection(&4, "abcdefghijklmnopqrstuvwxyz", "Macchiato".len() + 2))?;
 
     canvas.print()?;
 

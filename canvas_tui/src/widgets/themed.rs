@@ -28,6 +28,8 @@
 //!     # fn titled_text_title_bg(&self) -> Color { todo!() }
 //!     # fn titled_text_text_fg(&self) -> Color { todo!() }
 //!     # fn titled_text_text_bg(&self) -> Color { todo!() }
+//!     # fn rolling_selection_fg(&self) -> Color { todo!() }
+//!     # fn rolling_selection_bg(&self) -> Color { todo!() }
 //! }
 //!
 //! fn main() -> Result<(), Error> {
@@ -63,6 +65,9 @@ pub trait Theme {
     fn titled_text_title_bg(&self) -> Color;
     fn titled_text_text_fg(&self) -> Color;
     fn titled_text_text_bg(&self) -> Color;
+
+    fn rolling_selection_fg(&self) -> Color;
+    fn rolling_selection_bg(&self) -> Color;
 }
 
 pub struct Themed<T: Theme> {
@@ -121,6 +126,27 @@ widget! {
 
 widget! {
     parent: Themed<T: Theme>,
+    /// A toggleable button
+    ///
+    /// # Style
+    ///
+    /// ```text
+    /// ·········
+    /// ·-foo-✕-· (highlight represented by -)
+    /// ·········
+    /// ```
+    name: toggle,
+    origin: super::basic::toggle,
+    create: |&self, text: &'a str, activated: bool| ( 
+        text,
+        activated,
+        self.theme.button_fg(),
+        self.theme.button_bg(),
+    )
+}
+
+widget! {
+    parent: Themed<T: Theme>,
     /// A `title` with rows of `text` underneath
     ///
     /// # Optionals
@@ -151,3 +177,17 @@ widget! {
         self.theme.titled_text_text_bg(),
     )
 }
+
+widget! {
+    parent: Themed<T: Theme>,
+    name: rolling_selection,
+    origin: super::basic::rolling_selection,
+    struct_path: super::basic::RollingSelection,
+    create: |&self, text: &'a str, width: impl Into<Option<usize>>| (
+        text,
+        width,
+        self.theme.rolling_selection_fg(),
+        self.theme.rolling_selection_bg(),
+    )
+}
+
