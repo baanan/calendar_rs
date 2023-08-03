@@ -283,18 +283,12 @@ macro_rules! widget {
         // note: all the arguments have to have types
         create: |$($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)?
     ) => {
-        paste::paste! {
-            $crate::select_return_value!(
-                ($($struct_name)?)
-                (impl Widget + '_)
-                #[must_use]
-                #[allow(clippy::redundant_field_names)]
-                $(#[$($attrs)*])*
-                pub fn [<$name:lower>]($($param: $type),*) -> _ {
-                    $origin($($arg),*)
-                }
-            );
-        }
+        $crate::widget!(
+            $(#[$($attrs)*])*
+            name: $name,
+            $(struct_path: $struct_name,)?
+            create: |$($param: $type),*| { $origin($($arg),*) }
+        );
     };
     (
         // the parent struct that the widget becomes a method of
@@ -312,20 +306,13 @@ macro_rules! widget {
         // note: all the arguments have to have types
         create: |&$create_self:ident, $($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)? 
     ) => {
-        paste::paste! {
-            impl$(< $($generic_name: $generic_value),* >)? $parent$(< $($generic_name),* >)? {
-                $crate::select_return_value!(
-                    ($($struct_name)?)
-                    (impl Widget + '_)
-                    #[must_use]
-                    #[allow(clippy::redundant_field_names)]
-                    $(#[$($attrs)*])*
-                    pub fn [<$name:lower>]<'a>(&'a $create_self, $($param: $type),*) -> _ {
-                        $origin($($arg),*)
-                    }
-                );
-            }
-        }
+        $crate::widget!(
+            parent: $parent$(< $($generic_name: $generic_value),* >)?,
+            $(#[$($attrs)*])*
+            name: $name,
+            $(struct_path: $struct_name,)?
+            create: |&$create_self, $($param: $type),*| { $origin($($arg),*) }
+        );
     };
     // widgets that are based on other widgets,
     // but that need to do some extra operations on the input arguments

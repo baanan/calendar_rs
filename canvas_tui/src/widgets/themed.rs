@@ -178,6 +178,7 @@ widget! {
     )
 }
 
+// TODO: optional highlight
 widget! {
     parent: Themed<T: Theme>,
     name: rolling_selection,
