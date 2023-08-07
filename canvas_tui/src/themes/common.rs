@@ -11,9 +11,17 @@
 
 use crate::prelude::*;
 
+use super::BasicTheme;
+
 macro_rules! colors {
     ($($name:ident: ($r:expr, $g:expr, $b:expr)),* $(,)?) => {
         $(#[must_use] pub const fn $name() -> Color { Color::new($r, $g, $b) })*
+    };
+}
+
+macro_rules! highlights {
+    ($($name:ident),* $(,)?) => {
+        const HIGHLIGHTS: &'static [Color] = &[$(Self::$name()),*];
     };
 }
 
@@ -24,6 +32,11 @@ pub struct OneDark;
 impl OneDark {
     colors! {
         black: (40, 44, 52),
+        mantle: (30, 33, 39),
+        crust: (22, 24, 28),
+        surface: (50, 56, 66),
+        surface1: (64, 71, 84),
+        surface2: (81, 90, 107),
         white: (171, 178, 191),
         light_red: (224, 108, 117),
         dark_red: (190, 80, 70),
@@ -36,7 +49,32 @@ impl OneDark {
         gutter_grey: (76, 82, 99),
         comment_grey: (92, 99, 112),
     }
+    highlights![light_red, dark_red, green, light_yellow, dark_yellow, blue, magenta, cyan];
 }
+
+impl BasicTheme for OneDark {
+    fn base() -> Color { Self::black() }
+    fn mantle() -> Color { Self::mantle() }
+    fn crust() -> Color { Self::crust() }
+
+    fn surface() -> Color { Self::surface() }
+    fn surface1() -> Color { Self::surface1() }
+    fn surface2() -> Color { Self::surface2() }
+
+    fn text() -> Color { Self::white() }
+    fn subtext() -> Color { Self::comment_grey() }
+    fn special_text() -> Color { Color::WHITE }
+
+    fn success() -> Color { Self::green() }
+    fn warning() -> Color { Self::light_yellow() }
+    fn error() -> Color { Self::light_red() }
+    fn link() -> Color { Self::cyan() }
+
+    fn highlights() -> &'static [Color] {
+        Self::HIGHLIGHTS
+    }
+}
+
 
 /// The Catppuccin color theme
 ///
@@ -44,7 +82,38 @@ impl OneDark {
 pub mod catppuccin {
     use crate::{prelude::*, themes::BasicTheme};
 
+    macro_rules! catppuccin {
+        ($name:ident) => {
+            impl BasicTheme for $name {
+                fn base() -> Color { Self::base() }
+                fn mantle() -> Color { Self::mantle() }
+                fn crust() -> Color { Self::crust() }
+                fn surface() -> Color { Self::surface0() }
+                fn surface1() -> Color { Self::surface1() }
+                fn surface2() -> Color { Self::surface2() }
+                fn text() -> Color { Self::text() }
+                fn subtext() -> Color { Self::subtext0() }
+
+                fn special_text() -> Color { Color::WHITE }
+
+                fn success() -> Color { Self::green() }
+                fn warning() -> Color { Self::yellow() }
+                fn error() -> Color { Self::red() }
+
+                fn link() -> Color { Self::blue() }
+                fn highlights() -> &'static [Color] {
+                    Self::HIGHLIGHTS
+                }
+            }
+
+            impl $name {
+                highlights![rosewater, flamingo, pink, mauve, red, maroon, peach, yellow, green, teal, sky, sapphire, blue, lavender];
+            }
+        };
+    }
+
     pub struct Latte;
+    catppuccin!(Latte);
     impl Latte {
         colors! {
             rosewater: (220, 138, 120),
@@ -77,6 +146,7 @@ pub mod catppuccin {
     }
 
     pub struct Frappe;
+    catppuccin!(Frappe);
     impl Frappe {
         colors! {
             rosewater: (242, 213, 207),
@@ -108,43 +178,8 @@ pub mod catppuccin {
         }
     }
 
-    impl BasicTheme for Frappe {
-        fn base() -> Color { Self::base() }
-        fn mantle() -> Color { Self::mantle() }
-        fn crust() -> Color { Self::crust() }
-        fn surface() -> Color { Self::surface0() }
-        fn surface1() -> Color { Self::surface1() }
-        fn surface2() -> Color { Self::surface2() }
-        fn text() -> Color { Self::text() }
-        fn subtext() -> Color { Self::subtext0() }
-
-        fn special_text() -> Color { Color::WHITE }
-
-        fn success() -> Color { Self::green() }
-        fn warning() -> Color { Self::yellow() }
-        fn error() -> Color { Self::red() }
-
-        fn link() -> Color { Self::blue() }
-    }
-
-    // FIX: remove later, has to be procedural and it's probably not worth it
-    // theme! { Frappe,
-    //     text: Self::text(),
-    //     title => { fg: Self::text(), bg: Self::mantle(), },
-    //     button => {
-    //         fg: Self::subtext0() => { hover: Self::text() },
-    //         bg: Self::surface0(),
-    //     },
-    //     titled_text => {
-    //         title => { fg: Self::text(), bg: Self::mantle(), },
-    //         text => {
-    //             fg: Self::text(),
-    //             bg: Self::mantle(),
-    //         }
-    //     }
-    // }
-
     pub struct Macchiato;
+    catppuccin!(Macchiato);
     impl Macchiato {
         colors! {
             rosewater: (245, 224, 220),
@@ -177,6 +212,7 @@ pub mod catppuccin {
     }
 
     pub struct Mocha;
+    catppuccin!(Mocha);
     impl Mocha {
         colors! {
             rosewater: (245, 224, 220),

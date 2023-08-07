@@ -51,6 +51,8 @@ pub trait BasicTheme {
 
     #[must_use] fn link() -> Color;
 
+    #[must_use] fn highlights() -> &'static [Color];
+
     #[must_use] 
     fn highlighted(self, highlight: Color) -> WithHighlight<Self> where Self: Sized {
         WithHighlight { theme: self, highlight }

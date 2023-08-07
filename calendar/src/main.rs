@@ -1,4 +1,4 @@
-use canvas_tui::{prelude::*, themes::BasicTheme};
+use canvas_tui::{prelude::*, themes::{BasicTheme, OneDark}};
 
 fn main() -> Result<(), Error> {
     // let mut canvas = Basic::filled_with_text(&(11, 5), '.')
@@ -86,21 +86,23 @@ fn main() -> Result<(), Error> {
 
     // let _ = canvas.print();
 
-    use themes::catppuccin::Frappe;
+    // use themes::catppuccin::Frappe as Theme;
 
     #[allow(unused_variables)]
     let rosewater = Color::new(242, 213, 207);
     #[allow(unused_variables)]
     let highlight_text = Color::new(48, 52, 70);
 
-    let widgets = widgets::Selectable::num(Frappe.highlighted(rosewater), 4, true);
-    let mut canvas = Basic::filled_with(&(15, 11), ' ', Frappe::text(), Frappe::base());
+    // let widgets = widgets::Selectable::num(Theme.highlighted(Theme::rosewater()), 4, true);
+    // let mut canvas = Basic::filled_with(&(15, 11), ' ', Theme::text(), Theme::base());
+    let widgets = widgets::Selectable::num(OneDark.highlighted(OneDark::cyan()), 4, true);
+    let mut canvas = Basic::filled_with(&(15, 11), ' ', OneDark::text(), OneDark::base());
 
     #[allow(clippy::cast_possible_wrap)]
     canvas
         .draw(&Just::CenteredOnRow(1), widgets.title("Preferences"))
         .draw(&Just::CenteredOnRow(3), widgets.titled_text(0.., "Theme", &["Latte", "Frappe", "Macchiato", "Mocha"]))
-        .draw(&Just::CenteredOnRow(9), widgets.rolling_selection(&4, "abcdefghijklmnopqrstuvwxyz", "Macchiato".len() + 2))?;
+        .draw(&Just::CenteredOnRow(9), widgets.rolling_selection(4, "abcdefghijklmnopqrstuvwxyz", "Macchiato".len() + 2))?;
 
     canvas.print()?;
 
