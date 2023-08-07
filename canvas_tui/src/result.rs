@@ -8,8 +8,6 @@
 //! - Other methods are provided to modify the most recently drawn item such as
 //! [`colored`](DrawResultMethods::colored) or [`draw_inside`](DrawResultMethods::draw_inside)
 
-use std::ops::{Deref, DerefMut};
-
 use log::{error, Level};
 
 use crate::Error;
@@ -22,7 +20,7 @@ use super::num::{Pos, Size, Vec2};
 
 /// Holds the current canvas, as well as extra info from the last drawn object
 ///
-/// Can also [dereference](Deref) into the inner canvas
+/// Use [`Self::canvas`] or [`Self::canvas_mut`] to access the inner canvas
 #[derive(Debug)]
 pub struct DrawInfo<'c, C: Canvas<Output = C>, S: DrawnShape> {
     output: &'c mut C,
@@ -33,6 +31,9 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawInfo<'c, C, S> {
     pub(crate) fn new(output: &'c mut C, shape: S) -> Self {
         Self { output, shape }
     }
+
+    pub fn canvas(&self) -> &C { self.output }
+    pub fn canvas_mut(&mut self) -> &mut C { self.output }
 }
 
 impl<'c, C: Canvas<Output = C>> DrawInfo<'c, C, Single> {
@@ -53,14 +54,14 @@ impl<'c, C: Canvas<Output = C>> DrawInfo<'c, C, Grid> {
     }
 }
 
-impl<'c, C: Canvas<Output = C>, S: DrawnShape> Deref for DrawInfo<'c, C, S> {
-    type Target = C;
-    fn deref(&self) -> &Self::Target { self.output }
-}
+// impl<'c, C: Canvas<Output = C>, S: DrawnShape> Deref for DrawInfo<'c, C, S> {
+//     type Target = C;
+//     fn deref(&self) -> &Self::Target { self.output }
+// }
 
-impl<'c, C: Canvas<Output = C>, S: DrawnShape> DerefMut for DrawInfo<'c, C, S> {
-    fn deref_mut(&mut self) -> &mut Self::Target { self.output }
-}
+// impl<'c, C: Canvas<Output = C>, S: DrawnShape> DerefMut for DrawInfo<'c, C, S> {
+//     fn deref_mut(&mut self) -> &mut Self::Target { self.output }
+// }
 
 /// The result of a draw onto a canvas, holding the current canvas as well as some extra info from
 /// the last drawn object
@@ -393,8 +394,8 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> DrawResultMethods<'c, C, S> for D
 }
 
 impl<'c, C: Canvas<Output = C>, S: DrawnShape> Size for DrawResult<'c, C, S> {
-    fn width(&self) -> isize { self.as_ref().expect("asked for the width of an errored canvas").width() }
-    fn height(&self) -> isize { self.as_ref().expect("asked for the height of an errored canvas").height() }
+    fn width(&self) -> isize { self.as_ref().expect("asked for the width of an errored canvas").canvas().width() }
+    fn height(&self) -> isize { self.as_ref().expect("asked for the height of an errored canvas").canvas().height() }
 }
 
 impl<'c, C: Canvas<Output = C>, S: DrawnShape> Canvas for DrawResult<'c, C, S> { 
@@ -403,7 +404,7 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> Canvas for DrawResult<'c, C, S> {
 
     fn set_without_catch(&mut self, pos: Vec2, chr: char) -> Result<&mut C, Error> {
         match self {
-            Ok(canvas) => canvas.set_without_catch(pos, chr),
+            Ok(info) => info.canvas_mut().set_without_catch(pos, chr),
             Err(err) => Err(err.clone()),
         }
     }
@@ -415,31 +416,31 @@ impl<'c, C: Canvas<Output = C>, S: DrawnShape> Canvas for DrawResult<'c, C, S> {
         background: Option<Color>
     ) -> Result<&mut C, Error> {
         match self {
-            Ok(canvas) => canvas.highlight_without_catch(pos, foreground, background),
+            Ok(info) => info.canvas_mut().highlight_without_catch(pos, foreground, background),
             Err(err) => Err(err.clone()),
         }
     }
 
     fn get(&self, pos: &impl Pos) -> Result<Cell, Error> {
         match self {
-            Ok(canvas) => canvas.get(pos),
+            Ok(info) => info.canvas().get(pos),
             Err(err) => Err(err.clone()),
         }
     }
 
     fn window_absolute(&mut self, pos: &impl Pos, size: &impl Size) -> Result<C::Window<'_>, Error> {
         match self {
-            Ok(canvas) => canvas.window_absolute(pos, size),
+            Ok(info) => info.canvas_mut().window_absolute(pos, size),
             Err(err) => Err(err.clone()),
         }
     }
 
     fn error(&self) -> Result<(), Error> { self.as_ref().map(|_| ()).map_err(Clone::clone) }
     fn throw(&mut self, err: &Error) {
-        if let Ok(canvas) = self { canvas.throw(err) }
+        if let Ok(info) = self { info.canvas_mut().throw(err) }
     }
     fn base_canvas(&mut self) -> Result<&mut Self::Output, Error> {
-        self.as_mut().map(DerefMut::deref_mut).map_err(|err| err.clone())
+        self.as_mut().map(DrawInfo::canvas_mut).map_err(|err| err.clone())
     }
 }
 
