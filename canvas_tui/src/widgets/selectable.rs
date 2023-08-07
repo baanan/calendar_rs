@@ -176,6 +176,7 @@ widget! {
     /// ```
     name: title,
     origin: highlighted_text in super::basic,
+    return_value: super::basic::HighlightedText,
     create: |&self, text: &'a str| (
         text,
         self.theme.title_fg(),
@@ -200,8 +201,31 @@ widget! {
     /// See the [outer module's example](self)
     name: button,
     origin: highlighted_text in super::basic,
+    return_value: super::basic::HighlightedText,
     create: |&self, selection: &V, text: &'a str| (
         text,
+        self.button_fg(selection),
+        self.button_bg(selection),
+    )
+}
+
+widget! {
+    parent: Selectable<V: PartialEq, T: SelectableTheme>,
+    /// A toggleable button
+    ///
+    /// # Style
+    ///
+    /// ```text
+    /// ·········
+    /// ·-foo-✕-· (highlight represented by -)
+    /// ·········
+    /// ```
+    name: toggle,
+    origin: toggle in super::basic,
+    return_value: super::basic::HighlightedText,
+    create: |&self, selection: &V, text: &'a str, activated: bool| (
+        text,
+        activated,
         self.button_fg(selection),
         self.button_bg(selection),
     )
@@ -221,11 +245,11 @@ widget! {
     ///
     /// ```text
     /// ···············
-    /// ··###Theme###··
-    /// ··---Latte---··
-    /// ··--Frappe---··
-    /// ··-Macchiato-··
-    /// ··---Mocha---··
+    /// ··---Theme---··
+    /// ··   Latte   ··
+    /// ··  Frappe   ··
+    /// ·· Macchiato ··
+    /// ··   Mocha   ··
     /// ···············
     /// ```
     ///
@@ -253,11 +277,11 @@ widget! {
     ///         ));
     ///
     ///     // ···············
-    ///     // ··###Theme###··
-    ///     // ··---Latte---··
-    ///     // ··--Frappe---·· selected!
-    ///     // ··-Macchiato-··
-    ///     // ··---Mocha---··
+    ///     // ··---Theme---··
+    ///     // ··   Latte   ··
+    ///     // ··  Frappe   ·· selected!
+    ///     // ·· Macchiato ··
+    ///     // ··   Mocha   ··
     ///     // ···············
     ///     assert_eq!(canvas.get(&(5, 1))?.text, 'T');
     ///     assert_eq!(canvas.get(&(5, 1))?.foreground, Some(Frappe.titled_text_title_fg()));
@@ -312,24 +336,35 @@ widget! {
     },
 }
 
-// widget! {
-//     parent: Selectable<V: PartialEq, T: SelectableTheme>,
-//     name: rolling_selection,
-//     struct_path: super::basic::RollingSelection,
-//     create: |&self, selection: &V, text: &'a str, width: impl Into<Option<usize>>| {
-//         let width = width.into();
-//         super::basic::rolling_selection(
-//             // truncate early to truncate from the end if it's activated
-//             truncate(text, width.map(|val| val - 6), self.activated(selection)),
-//             width,
-//             self.rolling_selection_fg(selection),
-//             self.rolling_selection_bg(selection),
-//         )
-//     }
-// }
-
 widget! {
     parent: Selectable<V: PartialEq, T: SelectableTheme>,
+    /// A rolling selection of values
+    ///
+    /// # Arguments
+    ///
+    /// - `selection` - the selection id of the widget
+    /// - `text` - the text within the arrows
+    /// - `width` - the max width of the widget if [`Some`], unbounded if [`None`]
+    ///
+    /// # Optionals
+    ///
+    /// - [`highlighted: Color`](RollingSelection::highlighted) (default: None)
+    /// - [after `build`](WidgetSource::build),
+    ///     - [`at_start: bool`](super::basic::RollingSelection::at_start) (default: false)
+    ///     - [`at_end: bool`](super::basic::RollingSelection::at_start) (default: false)
+    ///     - [`truncate_from_end: bool`](super::basic::RollingSelection::truncate_from_end)
+    ///
+    /// *Note:
+    /// [`RollingSelection::truncate_from_end`](super::basic::RollingSelection::truncate_from_end)
+    /// is overwritten by this extension*
+    ///
+    /// # Style
+    ///
+    /// ```text
+    /// ···········
+    /// · ← foo → ·
+    /// ···········
+    /// ```
     name: rolling_selection,
     origin: rolling_selection in super::basic,
     args: (
@@ -340,14 +375,16 @@ widget! {
     optionals: (
         highlighted: Option<Color>,
     ),
-    build: |self| (
-        self.text,
-        self.width,
-        if self.highlighted.is_some() { 
-            self.parent.theme.highlight_fg() 
-        } else { 
-            self.parent.rolling_selection_fg(&self.selection)
-        },
-        self.highlighted.unwrap_or_else(|| self.parent.rolling_selection_bg(&self.selection)),
-    )
+    build: |self| {
+        super::basic::rolling_selection(
+            self.text,
+            self.width,
+            if self.highlighted.is_some() {
+                self.parent.theme.highlight_fg()
+            } else {
+                self.parent.rolling_selection_fg(&self.selection)
+            },
+            self.highlighted.unwrap_or_else(|| self.parent.rolling_selection_bg(&self.selection))
+        ).truncate_from_end(self.parent.activated(&self.selection))
+    }
 }

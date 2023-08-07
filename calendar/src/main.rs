@@ -1,4 +1,4 @@
-use canvas_tui::{prelude::*, themes::{BasicTheme, OneDark}};
+use canvas_tui::{prelude::*, themes::OneDark};
 
 fn main() -> Result<(), Error> {
     // let mut canvas = Basic::filled_with_text(&(11, 5), '.')
@@ -102,7 +102,8 @@ fn main() -> Result<(), Error> {
     canvas
         .draw(&Just::CenteredOnRow(1), widgets.title("Preferences"))
         .draw(&Just::CenteredOnRow(3), widgets.titled_text(0.., "Theme", &["Latte", "Frappe", "Macchiato", "Mocha"]))
-        .draw(&Just::CenteredOnRow(9), widgets.rolling_selection(4, "abcdefghijklmnopqrstuvwxyz", "Macchiato".len() + 2))?;
+        .draw(&Just::CenteredOnRow(9), widgets.rolling_selection(4, "abcdefghijklmnopqrstuvwxyz", "Macchiato".len() + 2)
+                                              .highlighted(OneDark::blue()).build().at_start(true))?;
 
     canvas.print()?;
 

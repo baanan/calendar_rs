@@ -97,6 +97,7 @@ widget! {
     /// See the [outer module's example](self)
     name: title,
     origin: highlighted_text in super::basic,
+    return_value: super::basic::HighlightedText,
     create: |&self, text: &'a str| (
         text,
         self.theme.title_fg(),
@@ -117,6 +118,7 @@ widget! {
     /// ```
     name: button,
     origin: highlighted_text in super::basic,
+    return_value: super::basic::HighlightedText,
     create: |&self, text: &'a str| (
         text,
         self.theme.button_fg(),
@@ -137,6 +139,7 @@ widget! {
     /// ```
     name: toggle,
     origin: toggle in super::basic,
+    return_value: super::basic::HighlightedText,
     create: |&self, text: &'a str, activated: bool| ( 
         text,
         activated,
@@ -151,7 +154,7 @@ widget! {
     ///
     /// # Optionals
     ///
-    /// - [`max_width: usize`](TitledText::max_width)
+    /// - [`max_width: usize`](super::basic::TitledText::max_width)
     ///
     /// # Style
     ///
@@ -159,11 +162,11 @@ widget! {
     ///
     /// ```text
     /// ···············
-    /// ··###Theme###··
-    /// ··---Latte---··
-    /// ··--Frappe---··
-    /// ··-Macchiato-··
-    /// ··---Mocha---··
+    /// ··---Theme---··
+    /// ··   Latte   ··
+    /// ··  Frappe   ··
+    /// ·· Macchiato ··
+    /// ··   Mocha   ··
     /// ···············
     /// ```
     name: titled_text,
@@ -180,6 +183,28 @@ widget! {
 
 widget! {
     parent: Themed<T: Theme>,
+    /// A rolling selection of values
+    ///
+    /// # Arguments
+    ///
+    /// - `text` - the text within the arrows
+    /// - `width` - the max width of the widget if [`Some`], unbounded if [`None`]
+    ///
+    /// # Optionals
+    ///
+    /// - [`highlighted: Color`](RollingSelection::highlighted) (default: None)
+    /// - [after `build`](WidgetSource::build),
+    ///     - [`at_start: bool`](super::basic::RollingSelection::at_start) (default: false)
+    ///     - [`at_end: bool`](super::basic::RollingSelection::at_end) (default: false)
+    ///     - [`truncate_from_end: bool`](super::basic::RollingSelection::truncate_from_end) (default: false)
+    ///
+    /// # Style
+    ///
+    /// ```text
+    /// ···········
+    /// · ← foo → ·
+    /// ···········
+    /// ```
     name: rolling_selection,
     origin: rolling_selection in super::basic,
     args: (

@@ -7,6 +7,6 @@ pub use crate::color::Color;
 pub use crate::box_chars;
 pub use crate::result::*;
 pub use crate::num::Vec2;
-pub use crate::widgets::{self, Widget};
-pub use crate::themes;
+pub use crate::widgets::{self, Widget, WidgetSource};
+pub use crate::themes::{self, BasicTheme};
 pub use crate::shapes::GrowFrom;

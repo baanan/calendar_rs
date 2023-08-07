@@ -33,17 +33,29 @@ use crate::prelude::*;
 use super::truncate;
 
 widget! {
-    /// a lot of widgets extend this in some way
-    /// so here's a generic name for errors
-    #[doc(hidden)]
+    /// A generic thing of highlighted text
+    ///
+    /// See [`title`], [`button`], and [`toggle`] for more specific implementations
+    ///
+    /// # Style
+    ///
+    /// ```text
+    /// ·······
+    /// ·-foo-· (highlight represented by -)
+    /// ·······
+    /// ```
     name: highlighted_text,
     args: (
         text: String [impl ToString as to_string],
         foreground: Option<Color> [impl Into<Option<Color>> as into],
         background: Option<Color> [impl Into<Option<Color>> as into],
     ),
+    optionals: (
+        width: Option<usize>,
+        truncate_from_end: Option<bool>,
+    ),
     size: |&self, _| {
-        let len = self.text.chars().count();
+        let len = self.width.unwrap_or_else(|| self.text.chars().count());
         let len: isize = len.try_into()
             .map_err(|_| Error::TooLarge("text length", len))?;
         Ok(Vec2::new(len + 2, 1))
@@ -51,7 +63,7 @@ widget! {
     draw: |self, canvas| {
         canvas
             .fill(' ')
-            .text(&Just::Centered, &self.text)
+            .text(&Just::Centered, &truncate(&self.text, self.width, self.truncate_from_end.unwrap_or_default()))
                 .grow_profile(&(1, 0))
                 .colored(self.foreground, self.background)
             .discard_info()
@@ -75,6 +87,28 @@ widget! {
     #[inline(always)]
     name: title,
     origin: highlighted_text in self,
+    return_value: HighlightedText,
+    create: |text: &str, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>| ( 
+        text,
+        foreground,
+        background,
+    )
+}
+
+widget! {
+    /// A simple button
+    ///
+    /// # Style
+    ///
+    /// ```text
+    /// ·······
+    /// ·-foo-· (highlight represented by -)
+    /// ·······
+    /// ```
+    #[inline(always)]
+    name: button,
+    origin: highlighted_text in self,
+    return_value: HighlightedText,
     create: |text: &str, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>| ( 
         text,
         foreground,
@@ -114,6 +148,7 @@ widget! {
     /// ```
     name: toggle,
     origin: highlighted_text in self,
+    return_value: HighlightedText,
     create: |text: &str, activated: bool, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>| ( 
         format!("{text} {}", if activated { '✓' } else { '✕' }),
         foreground,
@@ -208,7 +243,8 @@ widget! {
     /// # Optionals
     ///
     /// - [`at_start: bool`](RollingSelection::at_start) (default: false)
-    /// - [`at_end: bool`](RollingSelection::at_start) (default: false)
+    /// - [`at_end: bool`](RollingSelection::at_end) (default: false)
+    /// - [`truncate_from_end: bool`](RollingSelection::truncate_from_end) (default: false)
     ///
     /// # Style
     ///
@@ -228,6 +264,7 @@ widget! {
     optionals: (
         at_start: Option<bool>,
         at_end: Option<bool>,
+        truncate_from_end: Option<bool>,
     ),
     size: |&self, _| {
         let width = self.width.unwrap_or_else(|| self.text.chars().count() + 6);
@@ -239,7 +276,7 @@ widget! {
         assert!(!self.width.is_some_and(|width| width < 6), 
             "rolling selection width must be at least 6");
 
-        let text = truncate(&self.text, self.width.map(|val| val - 6), false);
+        let text = truncate(&self.text, self.width.map(|val| val - 6), self.truncate_from_end.unwrap_or_default());
         canvas
             .fill(' ').colored(self.foreground, self.background)
             .text(&Just::Centered, &text)?;

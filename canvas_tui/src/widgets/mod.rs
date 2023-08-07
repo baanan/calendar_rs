@@ -210,6 +210,7 @@ macro_rules! widget {
             $crate::optional_attr!(
                 !($($($optional_name)*)?)
                 (#[doc(hidden)])
+                #[doc = "See [`" $name "`]"]
                 pub struct [<$name:camel>] {
                     $($arg: $type),*
                     $(,$($optional_name: Option<$optional_type>),*)?
@@ -278,6 +279,7 @@ macro_rules! widget {
             $crate::optional_attr!(
                 !($($($optional_name)*)?)
                 (#[doc(hidden)])
+                #[doc = "See [`" $parent "::" $name "`]"]
                 pub struct [<$name:camel>]<'a $(, $($generic_name: $generic_value),*)?> {
                     parent: &'a $parent$(<$($generic_name),*>)?, 
                     $($arg: $type),*
@@ -341,20 +343,22 @@ macro_rules! widget {
         name: $name:ident,
         // the path of the original widget's function (can't be a method currently)
         origin: $origin:ident in $path:path,
-        // should the return value be the origin struct (if the origin has optionals) or just impl Widget
-        $(show_origin: $bool:literal,)?
+        // the return value of the function, default: `impl Widget` 
+        $(return_value: $return:ty,)?
         // the new widget's signature + the arguments passed into the original widget
         // if the widget has a parent, the first argument must be &self, referring to it
         // note: all the arguments have to have types
         create: |$(&$create_self:ident,)? $($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)? 
     ) => {
-        $crate::widget!(
-            $(parent: $parent$(< $($generic_name: $generic_value),* >)?,)?
-            $(#[$($attrs)*])*
-            name: $name,
-            $($crate::and!(($bool) struct_path: $struct_name,))?
-            create: |$(&$create_self,)? $($param: $type),*| { $path::$origin($($arg),*) }
-        );
+        paste::paste!{ 
+            $crate::widget!(
+                $(parent: $parent$(< $($generic_name: $generic_value),* >)?,)?
+                $(#[$($attrs)*])*
+                name: $name,
+                $(return_value: $return,)?
+                create: |$(&$create_self,)? $($param: $type),*| { $path::$origin($($arg),*) }
+            );
+        }
     };
     // widgets that are based on other widgets,
     // but that need to do some extra operations on the input arguments
@@ -458,6 +462,7 @@ macro_rules! widget {
         build: |$self:ident| { $($body:tt)* } $(,)?
     ) => {
         paste::paste! {
+            #[doc = "See [`" $parent "::" $name "`]"]
             pub struct [<$name:camel>]<'a $(, $($generic_name: $generic_value),*)?> {
                 parent: &'a $parent$(<$($generic_name),*>)?, 
                 $($arg: $type),*,
@@ -515,6 +520,7 @@ macro_rules! widget {
         build: |$self:ident| { $($body:tt)* } $(,)?
     ) => {
         paste::paste! {
+            #[doc = "See [`" $name "`]"]
             pub struct [<$name:camel>] {
                 $($arg: $type),*,
                 $($optional_name: Option<$optional_type>),*
@@ -639,8 +645,13 @@ pub trait Widget {
     fn name() -> &'static str;
 }
 
+/// A source of a [widget](Widget)
+///
+/// This can be a [widget](Widget) itself or a builder of a widget (such as when optionals are
+/// provided on a [widget extension](widget#extension-optionals))
 pub trait WidgetSource {
     type Output: Widget;
+    /// Builds the source into a widget
     fn build(self) -> Self::Output;
 }
 
@@ -675,5 +686,5 @@ fn truncate_unchecked(string: &str, max_width: usize, from_end: bool) -> String 
 pub mod basic;
 pub mod themed;
 pub mod selectable;
-pub use themed::*;
-pub use selectable::*;
+pub use themed::{Themed, Theme};
+pub use selectable::{Selectable, SelectableTheme};
