@@ -24,6 +24,11 @@ pub enum Just {
     BottomLeft,
     BottomRight,
 
+    OffCenterTopBy(isize),
+    OffCenterBottomBy(isize),
+    OffCenterLeftBy(isize),
+    OffCenterRightBy(isize),
+
     CenterTop,
     CenterBottom,
     CenterLeft,
@@ -84,6 +89,12 @@ impl Just {
             Just::TopRight => Vec2::new(max.x, min.y),
             Just::BottomLeft => Vec2::new(min.x, max.y),
             Just::BottomRight => max,
+
+            // sides with a custom margin
+            Just::OffCenterTopBy(off) => Vec2::new(center.x, min.y - 1 + off),
+            Just::OffCenterBottomBy(off) => Vec2::new(center.x, max.y + 1 - off),
+            Just::OffCenterLeftBy(off) => Vec2::new(min.x - 1 + off, center.y),
+            Just::OffCenterRightBy(off) => Vec2::new(max.x + 1 - off, center.y),
 
             // centers of the sides
             Just::CenterTop => Vec2::new(center.x, min.y),

@@ -680,11 +680,23 @@ fn truncate(string: &str, max_width: Option<usize>, from_end: bool) -> String {
 ///
 /// - If the `string`'s length is smaller than `max_width`
 fn truncate_unchecked(string: &str, max_width: usize, from_end: bool) -> String {
+    assert!(string.len() >= max_width, "string length must be larger than max_width");
     if from_end {
         string[(string.len() - max_width)..].to_string()
     } else {
         string[..max_width].to_string()
     }
+}
+
+/// Gets the width from `width` if it is [`Some`], or the `string`'s length with the given `padding` if it is [`None`]
+fn width_or_length(width: Option<usize>, string: &str, padding: usize) -> Result<isize, Error> {
+    let len = width.unwrap_or_else(|| string.chars().count() + padding);
+    len.try_into().map_err(|_| Error::TooLarge("text length", len))
+}
+
+fn length_of(string: &str) -> Result<isize, Error> {
+    let len = string.chars().count();
+    len.try_into().map_err(|_| Error::TooLarge("text length", len))
 }
 
 pub mod basic;

@@ -30,7 +30,7 @@
 
 use crate::prelude::*;
 
-use super::truncate;
+use super::{truncate, length_of};
 
 widget! {
     /// A generic thing of highlighted text
@@ -55,18 +55,12 @@ widget! {
         truncate_from_end: Option<bool>,
     ),
     size: |&self, _| {
-        let len = self.width.unwrap_or_else(|| self.text.chars().count() + 2);
-        let len: isize = len.try_into()
-            .map_err(|_| Error::TooLarge("text length", len))?;
-        Ok(Vec2::new(len, 1))
+        Ok(Vec2::new(super::width_or_length(self.width, &self.text, 2)?, 1))
     },
     draw: |self, canvas| {
-        let width = canvas.width();
         canvas
-            .fill(' ')
+            .fill(' ').colored(self.foreground, self.background)
             .text(&Just::Centered, &truncate(&self.text, self.width, self.truncate_from_end.unwrap_or_default()))
-                .expand_profile(width, None, GrowFrom::Center)
-                .colored(self.foreground, self.background)
             .discard_info()
     },
 }
@@ -128,6 +122,10 @@ widget! {
     /// ·········
     /// ```
     ///
+    /// # Panics
+    ///
+    /// - If `width` is less than 6
+    ///
     /// # Example
     ///
     /// ```
@@ -148,13 +146,41 @@ widget! {
     /// # }
     /// ```
     name: toggle,
-    origin: highlighted_text in self,
-    return_value: HighlightedText,
-    create: |text: &str, activated: bool, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>| ( 
-        format!("  {text} {}", if activated { '✓' } else { '✕' }),
-        foreground,
-        background,
-    ).truncate_from_end(true)
+    args: (
+        text: String [impl ToString as to_string],
+        activated: bool,
+        foreground: Option<Color> [impl Into<Option<Color>> as into],
+        background: Option<Color> [impl Into<Option<Color>> as into],
+    ),
+    optionals: (
+        width: Option<usize>,
+        truncate_from_end: Option<bool>,
+    ),
+    size: |&self, _| {
+        if let Some(width) = self.width { assert!(width >= 6); }
+        Ok(Vec2::new(super::width_or_length(self.width, &self.text, 6)?, 1))
+    },
+    draw: |self, canvas| {
+        if let Some(width) = self.width { assert!(width >= 6); }
+
+        canvas.fill(' ').colored(self.foreground, self.background)?;
+
+        // if the width is constrained and the text is too big
+        if self.width.is_some() && length_of(&self.text)? > canvas.width() - 3 * 2 {
+            let truncate_from_end = self.truncate_from_end.unwrap_or_default();
+            let text_width = (canvas.width() - 3 - 1).try_into().expect("asserted");
+
+            // truncate the text and draw it as far right as it can go
+            let text = &truncate(&self.text, Some(text_width), truncate_from_end);
+            canvas.text(&Just::OffCenterRightBy(3), text)?; 
+        } else {
+            // otherwise just draw it in the center
+            canvas.text(&Just::Centered, &self.text)?;
+        }
+
+        canvas.text(&Just::CenterRight, if self.activated { "✓" } else { "✕" })
+            .discard_info()
+    },
 }
 
 widget! {

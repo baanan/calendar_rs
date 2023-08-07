@@ -222,7 +222,7 @@ widget! {
     /// ```
     name: toggle,
     origin: toggle in super::basic,
-    return_value: super::basic::HighlightedText,
+    return_value: super::basic::Toggle,
     create: |&self, selection: &V, text: &'a str, activated: bool| (
         text,
         activated,
