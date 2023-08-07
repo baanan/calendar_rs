@@ -55,16 +55,17 @@ widget! {
         truncate_from_end: Option<bool>,
     ),
     size: |&self, _| {
-        let len = self.width.unwrap_or_else(|| self.text.chars().count());
+        let len = self.width.unwrap_or_else(|| self.text.chars().count() + 2);
         let len: isize = len.try_into()
             .map_err(|_| Error::TooLarge("text length", len))?;
-        Ok(Vec2::new(len + 2, 1))
+        Ok(Vec2::new(len, 1))
     },
     draw: |self, canvas| {
+        let width = canvas.width();
         canvas
             .fill(' ')
             .text(&Just::Centered, &truncate(&self.text, self.width, self.truncate_from_end.unwrap_or_default()))
-                .grow_profile(&(1, 0))
+                .expand_profile(width, None, GrowFrom::Center)
                 .colored(self.foreground, self.background)
             .discard_info()
     },
@@ -150,10 +151,10 @@ widget! {
     origin: highlighted_text in self,
     return_value: HighlightedText,
     create: |text: &str, activated: bool, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>| ( 
-        format!("{text} {}", if activated { '✓' } else { '✕' }),
+        format!("  {text} {}", if activated { '✓' } else { '✕' }),
         foreground,
         background,
-    )
+    ).truncate_from_end(true)
 }
 
 widget! {
@@ -273,8 +274,7 @@ widget! {
         Ok(Vec2::new(width, 1))
     },
     draw: |self, canvas| {
-        assert!(!self.width.is_some_and(|width| width < 6), 
-            "rolling selection width must be at least 6");
+        assert!(!self.width.is_some_and(|width| width < 6), "rolling selection width must be at least 6");
 
         let text = truncate(&self.text, self.width.map(|val| val - 6), self.truncate_from_end.unwrap_or_default());
         canvas
