@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 canvas_tui = { path = "../canvas_tui" }
+color-hex = "0.2.0"

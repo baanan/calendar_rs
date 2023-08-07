@@ -14,6 +14,11 @@ pub mod shapes;
 pub mod themes;
 pub mod widgets;
 
+#[doc(hidden)]
+pub use paste::paste;
+#[doc(hidden)]
+pub use color_hex::color_from_hex;
+
 /// A generic error for the crate
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {

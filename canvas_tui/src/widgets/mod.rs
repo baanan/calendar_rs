@@ -206,7 +206,7 @@ macro_rules! widget {
         // draws the widget onto `canvas`
         draw: |$drawself:ident, $canvas:ident| $draw:expr $(,)?
     ) => {
-        paste::paste! {
+        $crate::paste! {
             $crate::optional_attr!(
                 !($($($optional_name)*)?)
                 (#[doc(hidden)])
@@ -275,7 +275,7 @@ macro_rules! widget {
         // draws the widget onto `canvas`
         draw: |$drawself:ident, $canvas:ident| $draw:expr $(,)?
     ) => {
-        paste::paste! {
+        $crate::paste! {
             $crate::optional_attr!(
                 !($($($optional_name)*)?)
                 (#[doc(hidden)])
@@ -348,15 +348,17 @@ macro_rules! widget {
         // the new widget's signature + the arguments passed into the original widget
         // if the widget has a parent, the first argument must be &self, referring to it
         // note: all the arguments have to have types
-        create: |$(&$create_self:ident,)? $($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)? 
+        create: |$(&$create_self:ident,)? $($param:ident: $type:ty),*| 
+            ($($arg:expr),* $(,)?)
+            $(.$option:ident($val:expr))* $(,)? 
     ) => {
-        paste::paste!{ 
+        $crate::paste!{ 
             $crate::widget!(
                 $(parent: $parent$(< $($generic_name: $generic_value),* >)?,)?
                 $(#[$($attrs)*])*
                 name: $name,
                 $(return_value: $return,)?
-                create: |$(&$create_self,)? $($param: $type),*| { $path::$origin($($arg),*) }
+                create: |$(&$create_self,)? $($param: $type),*| { $path::$origin($($arg),*)$(.$option($val))* }
             );
         }
     };
@@ -375,7 +377,7 @@ macro_rules! widget {
         // note: all the arguments have to have types
         create: |$($param:ident: $type:ty),*| { $($body:tt)* } $(,)?
     ) => {
-        paste::paste! {
+        $crate::paste! {
             $crate::select_return_value!(first
                 ($($return_value)?)
                 (impl Widget + '_)
@@ -401,7 +403,7 @@ macro_rules! widget {
         // note: all the arguments have to have types
         create: |&$create_self:ident, $($param:ident: $type:ty),*| { $($body:tt)* } $(,)? 
     ) => {
-        paste::paste! {
+        $crate::paste! {
             impl$(< $($generic_name: $generic_value),* >)? $parent$(< $($generic_name),* >)? {
                 $crate::select_return_value!(first
                     ($($return_value)?)
@@ -432,7 +434,9 @@ macro_rules! widget {
         // each is None by default, and can be set using methods with the same name
         optionals: ( $($optional_name:ident: Option<$optional_type:ty>),* $(,)? ),
         // a function to build the origin widget from this widget
-        build: |$self:ident| ($($buildarg:expr),* $(,)?) $(,)?
+        build: |$self:ident| 
+            ($($buildarg:expr),* $(,)?) 
+            $(.$option:ident($val:expr))* $(,)?
     ) => {
         $crate::widget!(
             $(parent: $parent$(< $($generic_name: $generic_value),* >)?,)?
@@ -441,7 +445,7 @@ macro_rules! widget {
             origin: $func in $path,
             args: ( $($arg: $type $([$from $(as $method)? $(> $($rest)*)?])?),* ),
             optionals: ( $($optional_name: Option<$optional_type>),* ),
-            build: |$self| { $path::$func($($buildarg),*) }
+            build: |$self| { $path::$func($($buildarg),*)$(.$option($val))* }
         );
     };
     (
@@ -461,7 +465,7 @@ macro_rules! widget {
         // a function to build the origin widget from this widget
         build: |$self:ident| { $($body:tt)* } $(,)?
     ) => {
-        paste::paste! {
+        $crate::paste! {
             #[doc = "See [`" $parent "::" $name "`]"]
             pub struct [<$name:camel>]<'a $(, $($generic_name: $generic_value),*)?> {
                 parent: &'a $parent$(<$($generic_name),*>)?, 
@@ -519,7 +523,7 @@ macro_rules! widget {
         // a function to build the origin widget from this widget
         build: |$self:ident| { $($body:tt)* } $(,)?
     ) => {
-        paste::paste! {
+        $crate::paste! {
             #[doc = "See [`" $name "`]"]
             pub struct [<$name:camel>] {
                 $($arg: $type),*,

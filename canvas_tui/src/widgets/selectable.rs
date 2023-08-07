@@ -375,16 +375,14 @@ widget! {
     optionals: (
         highlighted: Option<Color>,
     ),
-    build: |self| {
-        super::basic::rolling_selection(
-            self.text,
-            self.width,
-            if self.highlighted.is_some() {
-                self.parent.theme.highlight_fg()
-            } else {
-                self.parent.rolling_selection_fg(&self.selection)
-            },
-            self.highlighted.unwrap_or_else(|| self.parent.rolling_selection_bg(&self.selection))
-        ).truncate_from_end(self.parent.activated(&self.selection))
-    }
+    build: |self| (
+        self.text,
+        self.width,
+        if self.highlighted.is_some() {
+            self.parent.theme.highlight_fg()
+        } else {
+            self.parent.rolling_selection_fg(&self.selection)
+        },
+        self.highlighted.unwrap_or_else(|| self.parent.rolling_selection_bg(&self.selection))
+    ).truncate_from_end(self.parent.activated(&self.selection))
 }
