@@ -694,6 +694,7 @@ fn width_or_length(width: Option<usize>, string: &str, padding: usize) -> Result
     len.try_into().map_err(|_| Error::TooLarge("text length", len))
 }
 
+/// Gets the length of the string
 fn length_of(string: &str) -> Result<isize, Error> {
     let len = string.chars().count();
     len.try_into().map_err(|_| Error::TooLarge("text length", len))

@@ -84,9 +84,9 @@ impl<T: BasicTheme> SelectableTheme for T {
     fn highlight_fg_hover(&self) -> Color { Self::highlight_fg_hover() }
     fn highlight_fg_activated(&self) -> Color { Self::highlight_fg_hover() }
 
-    fn button_fg_hover(&self) -> Color { Self::hover_fg() }
-    fn button_fg_activated(&self) -> Color { self.button_fg_hover() }
-    fn button_bg_hover(&self) -> Color { Self::button_bg() }
+    fn button_fg_hover(&self) -> Color { self.button_fg() }
+    fn button_fg_activated(&self) -> Color { Self::text() }
+    fn button_bg_hover(&self) -> Color { Self::hover_bg() }
     fn button_bg_activated(&self) -> Color { self.button_bg_hover() }
 
     fn titled_text_text_fg_hover(&self) -> Color { Self::text() }

@@ -13,9 +13,9 @@ fn draw() -> Result<(), Error> {
     #[allow(unused_variables)]
     let highlight_text = rgb(48, 52, 70);
 
-    let widgets = widgets::Selectable::num(Theme.highlighted(Theme::rosewater()), 4, true);
+    let widgets = widgets::Selectable::num(Theme.highlighted(Theme::rosewater()), 5, false);
     let mut canvas = Basic::filled_with(&(15, 12), ' ', Theme::text(), Theme::base());
-    // let widgets = widgets::Selectable::num(OneDark.highlighted(OneDark::cyan()), 4, true);
+    // let widgets = widgets::Selectable::num(OneDark.highlighted(OneDark::cyan()), 5, false);
     // let mut canvas = Basic::filled_with(&(15, 12), ' ', OneDark::text(), OneDark::base());
 
     let width = "Macchiato".len() + 2;

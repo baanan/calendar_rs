@@ -38,6 +38,7 @@ impl OneDark {
         surface1: (64, 71, 84),
         surface2: (81, 90, 107),
         white: (171, 178, 191),
+        subtext: (157, 165, 180),
         light_red: (224, 108, 117),
         dark_red: (190, 80, 70),
         green: (152, 195, 121),
@@ -62,7 +63,7 @@ impl BasicTheme for OneDark {
     fn surface2() -> Color { Self::surface2() }
 
     fn text() -> Color { Self::white() }
-    fn subtext() -> Color { Self::comment_grey() }
+    fn subtext() -> Color { Self::subtext() }
     fn special_text() -> Color { Color::WHITE }
 
     fn success() -> Color { Self::green() }

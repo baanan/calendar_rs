@@ -168,10 +168,10 @@ widget! {
         // if the width is constrained and the text is too big
         if self.width.is_some() && length_of(&self.text)? > canvas.width() - 3 * 2 {
             let truncate_from_end = self.truncate_from_end.unwrap_or_default();
-            let text_width = (canvas.width() - 3 - 1).try_into().expect("asserted");
+            let max_width = (canvas.width() - 3 - 1).try_into().expect("asserted");
 
             // truncate the text and draw it as far right as it can go
-            let text = &truncate(&self.text, Some(text_width), truncate_from_end);
+            let text = &truncate(&self.text, Some(max_width), truncate_from_end);
             canvas.text(&Just::OffCenterRightBy(3), text)?; 
         } else {
             // otherwise just draw it in the center
