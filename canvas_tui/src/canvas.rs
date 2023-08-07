@@ -2,7 +2,7 @@
 //!
 //! Methods on [`Canvas`] can be used to add [text](Canvas::text), [basic](Canvas::rect) [shapes](Canvas::grid), and [widgets] to the screen
 
-use crate::prelude::*;
+use crate::{prelude::*, widgets::WidgetSource};
 
 use super::{num::{Pos, Size}, shapes::{Rect, Single, Grid}};
 use array2d::Array2D;
@@ -188,11 +188,12 @@ pub trait Canvas : Size + Sized {
     /// # Errors
     ///
     /// - If the widget doesn't have enough space
-    fn draw<W: Widget>(&mut self, justification: &Just, widget: W) -> DrawResult<Self::Output, Rect> {
+    fn draw<W: WidgetSource>(&mut self, justification: &Just, widget: W) -> DrawResult<Self::Output, Rect> {
+        let widget = widget.build();
         let canvas = self.base_canvas()?;
         let size = widget.size(canvas)?;
         let pos = justification.get(canvas, &size)?;
-        canvas.catch(check_bounds(pos, size, canvas, W::name()))?;
+        canvas.catch(check_bounds(pos, size, canvas, W::Output::name()))?;
         widget.draw(&mut canvas.window_absolute(&pos, &size)?)?;
         Ok(DrawInfo::rect(canvas, pos, size))
     }

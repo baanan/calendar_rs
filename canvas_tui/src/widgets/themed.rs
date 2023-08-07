@@ -96,7 +96,7 @@ widget! {
     ///
     /// See the [outer module's example](self)
     name: title,
-    origin: super::basic::highlighted_text,
+    origin: highlighted_text in super::basic,
     create: |&self, text: &'a str| (
         text,
         self.theme.title_fg(),
@@ -116,7 +116,7 @@ widget! {
     /// ·······
     /// ```
     name: button,
-    origin: super::basic::highlighted_text,
+    origin: highlighted_text in super::basic,
     create: |&self, text: &'a str| (
         text,
         self.theme.button_fg(),
@@ -136,7 +136,7 @@ widget! {
     /// ·········
     /// ```
     name: toggle,
-    origin: super::basic::toggle,
+    origin: toggle in super::basic,
     create: |&self, text: &'a str, activated: bool| ( 
         text,
         activated,
@@ -167,7 +167,7 @@ widget! {
     /// ···············
     /// ```
     name: titled_text,
-    origin: super::basic::titled_text,
+    origin: titled_text in super::basic,
     create: |&self, title: &'a str, text: &[impl ToString]| (
         title,
         text,
@@ -178,17 +178,25 @@ widget! {
     )
 }
 
-// TODO: optional highlight
 widget! {
     parent: Themed<T: Theme>,
     name: rolling_selection,
-    origin: super::basic::rolling_selection,
-    struct_path: super::basic::RollingSelection,
-    create: |&self, text: &'a str, width: impl Into<Option<usize>>| (
-        text,
-        width,
-        self.theme.rolling_selection_fg(),
-        self.theme.rolling_selection_bg(),
+    origin: rolling_selection in super::basic,
+    args: (
+        text: String [&str as to_string],
+        width: Option<usize> [impl Into<Option<usize>> as into],
+    ),
+    optionals: (
+        highlighted: Option<Color>,
+    ),
+    build: |self| (
+        self.text,
+        self.width,
+        if self.highlighted.is_some() {
+            self.parent.theme.highlight_fg()
+        } else {
+            self.parent.theme.rolling_selection_fg()
+        },
+        self.highlighted.unwrap_or_else(|| self.parent.theme.rolling_selection_bg()),
     )
 }
-

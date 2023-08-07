@@ -175,7 +175,7 @@ widget! {
     /// ·······
     /// ```
     name: title,
-    origin: super::basic::highlighted_text,
+    origin: highlighted_text in super::basic,
     create: |&self, text: &'a str| (
         text,
         self.theme.title_fg(),
@@ -199,7 +199,7 @@ widget! {
     ///
     /// See the [outer module's example](self)
     name: button,
-    origin: super::basic::highlighted_text,
+    origin: highlighted_text in super::basic,
     create: |&self, selection: &V, text: &'a str| (
         text,
         self.button_fg(selection),
@@ -312,18 +312,42 @@ widget! {
     },
 }
 
+// widget! {
+//     parent: Selectable<V: PartialEq, T: SelectableTheme>,
+//     name: rolling_selection,
+//     struct_path: super::basic::RollingSelection,
+//     create: |&self, selection: &V, text: &'a str, width: impl Into<Option<usize>>| {
+//         let width = width.into();
+//         super::basic::rolling_selection(
+//             // truncate early to truncate from the end if it's activated
+//             truncate(text, width.map(|val| val - 6), self.activated(selection)),
+//             width,
+//             self.rolling_selection_fg(selection),
+//             self.rolling_selection_bg(selection),
+//         )
+//     }
+// }
+
 widget! {
     parent: Selectable<V: PartialEq, T: SelectableTheme>,
     name: rolling_selection,
-    struct_path: super::basic::RollingSelection,
-    create: |&self, selection: &V, text: &'a str, width: impl Into<Option<usize>>| {
-        let width = width.into();
-        super::basic::rolling_selection(
-            // truncate early to truncate from the end if it's activated
-            truncate(text, width.map(|val| val - 6), self.activated(selection)),
-            width,
-            self.rolling_selection_fg(selection),
-            self.rolling_selection_bg(selection),
-        )
-    }
+    origin: rolling_selection in super::basic,
+    args: (
+        selection: V,
+        text: String [&str as to_string],
+        width: Option<usize> [impl Into<Option<usize>> as into],
+    ),
+    optionals: (
+        highlighted: Option<Color>,
+    ),
+    build: |self| (
+        self.text,
+        self.width,
+        if self.highlighted.is_some() { 
+            self.parent.theme.highlight_fg() 
+        } else { 
+            self.parent.rolling_selection_fg(&self.selection)
+        },
+        self.highlighted.unwrap_or_else(|| self.parent.rolling_selection_bg(&self.selection)),
+    )
 }

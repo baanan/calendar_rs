@@ -74,7 +74,7 @@ widget! {
     /// See the [outer module's example](self)
     #[inline(always)]
     name: title,
-    origin: self::highlighted_text,
+    origin: highlighted_text in self,
     create: |text: &str, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>| ( 
         text,
         foreground,
@@ -113,7 +113,7 @@ widget! {
     /// # }
     /// ```
     name: toggle,
-    origin: self::highlighted_text,
+    origin: highlighted_text in self,
     create: |text: &str, activated: bool, foreground: impl Into<Option<Color>>, background: impl Into<Option<Color>>| ( 
         format!("{text} {}", if activated { '✓' } else { '✕' }),
         foreground,

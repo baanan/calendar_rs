@@ -56,7 +56,7 @@ use crate::{prelude::*, num::Size};
 /// }
 /// ```
 ///
-/// ## Changing an already existing widget
+/// ## Widget Extensions
 ///
 /// ```
 /// use canvas_tui::prelude::*;
@@ -64,7 +64,7 @@ use crate::{prelude::*, num::Size};
 ///
 /// widget! {
 ///     name: title,
-///     origin: widgets::basic::title,
+///     origin: title in widgets::basic,
 ///     create: |text: &str| (
 ///         text,
 ///         Color::WHITE,
@@ -129,6 +129,66 @@ use crate::{prelude::*, num::Size};
 ///     Ok(())
 /// }
 /// ```
+///
+/// ## Extension Optionals
+///
+/// ```
+/// use canvas_tui::prelude::*;
+/// use widgets::prelude::*;
+///
+/// widget! {
+///     name: title,
+///     args: ( 
+///         text: String [&str as to_string],
+///         foreground: Option<Color>,
+///         background: Option<Color>, 
+///     ),
+///     size: |&self, _| { 
+///         // omitted //
+/// #       let len = self.text.chars().count();
+/// #       let len: isize = len.try_into()
+/// #           .map_err(|_| Error::TooLarge("text length", len))?;
+/// #       Ok(Vec2::new(len + 2, 1))
+///     },
+///     draw: |self, canvas| { 
+///         // omitted //
+/// #       canvas.text(&Just::Centered, &self.text)
+/// #           .grow_profile(&(1, 0))
+/// #           .colored(self.foreground, self.background)
+/// #           .discard_info()
+///     },
+/// }
+///
+/// widget! {
+///     name: optional_title,
+///     origin: title in self,
+///     args: (
+///         text: String [&str as to_string],
+///     ),
+///     optionals: (
+///         foreground: Option<Color>,
+///         background: Option<Color>,
+///     ),
+///     build: |self| (
+///         &self.text,
+///         self.foreground,
+///         self.background,
+///     )
+/// }
+///
+/// fn main() -> Result<(), Error> {
+///     let mut canvas = Basic::new(&(7, 3));
+///     canvas.draw(&Just::Centered, optional_title("foo").foreground(Color::BLACK))?;
+///
+///     // ·······
+///     // ·-foo-· highlight represented by -
+///     // ·······
+///     assert_eq!(canvas.get(&(0, 1))?.foreground, None);
+///     assert_eq!(canvas.get(&(1, 1))?.foreground, Some(Color::BLACK));
+///     assert_eq!(canvas.get(&(1, 1))?.background, None);
+///     Ok(())
+/// }
+/// ```
 #[macro_export]
 macro_rules! widget {
     (
@@ -166,11 +226,11 @@ macro_rules! widget {
             #[allow(clippy::redundant_field_names)]
             #[cfg(not(doc))]
             $(#[$($attrs)*])*
-            pub fn [<$name:lower>]($($arg: $crate::rightmost!(($type) $(($from))?)),*) -> [<$name:camel>] {
+            pub fn [<$name:lower>]($($arg: $crate::first!($(($from))? ($type))),*) -> [<$name:camel>] {
                 [<$name:camel>] {
-                    $($arg: $crate::rightmost!(
-                        ($arg$($(.$method())?)?)
+                    $($arg: $crate::first!(
                         $($(($arg$($rest)*))?)?
+                        ($arg$($(.$method())?)?)
                     )),*
                     $(,$($optional_name: None),*)?
                 }
@@ -178,11 +238,12 @@ macro_rules! widget {
 
             // use the full name only if there are optionals
             // otherwise, just use impl Widget
-            $crate::select!(($($($optional_name)*)?)
-                (#[cfg(doc)] $(#[$($attrs)*])* pub fn [<$name:lower>]($($arg: $crate::rightmost!(($type) $(($from))?)),*) 
-                    -> impl Widget { })
-                (#[cfg(doc)] $(#[$($attrs)*])* pub fn [<$name:lower>]($($arg: $crate::rightmost!(($type) $(($from))?)),*) 
-                    -> [<$name:camel>] { })
+            $crate::select_return_value!(select
+                ($($($optional_name)*)?) 
+                ([<$name:camel>])
+                (impl Widget)
+                #[cfg(doc)] $(#[$($attrs)*])* 
+                pub fn [<$name:lower>]($($arg: $crate::first!($(($from))? ($type))),*) -> _ {  }
             );
 
             impl [<$name:camel>] {
@@ -235,13 +296,13 @@ macro_rules! widget {
                 #[allow(clippy::redundant_field_names)]
                 #[cfg(not(doc))]
                 $(#[$($attrs)*])*
-                pub fn [<$name:lower>](&self, $($arg: $crate::rightmost!(($type) $(($from))?)),*) 
+                pub fn [<$name:lower>](&self, $($arg: $crate::first!($(($from))? ($type))),*) 
                     -> [<$name:camel>]<'_ $(, $($generic_name),*)?> 
                 {
                     [<$name:camel>] { parent: self, 
-                        $($arg: $crate::rightmost!(
-                            ($arg$($(.$method())?)?)
+                        $($arg: $crate::first!(
                             $($(($arg$($rest)*))?)?
+                            ($arg$($(.$method())?)?)
                         )),*
                         $(,$($optional_name: None),*)?
                     }
@@ -249,11 +310,12 @@ macro_rules! widget {
 
                 // use the full name only if there are optionals
                 // otherwise, just use impl Widget
-                $crate::select!(($($($optional_name)*)?)
-                    (#[cfg(doc)] $(#[$($attrs)*])* pub fn [<$name:lower>](&self, $($arg: $crate::rightmost!(($type) $(($from))?)),*) 
-                        -> impl Widget + '_ { })
-                    (#[cfg(doc)] $(#[$($attrs)*])* pub fn [<$name:lower>](&self, $($arg: $crate::rightmost!(($type) $(($from))?)),*) 
-                        -> [<$name:camel>]<'_ $(, $($generic_name),*)?> { })
+                $crate::select_return_value!(select
+                    ($($($optional_name)*)?) 
+                    ([<$name:camel>]<'_ $(, $($generic_name),*)?>)
+                    (impl Widget + '_)
+                    #[cfg(doc)] $(#[$($attrs)*])* 
+                    pub fn [<$name:lower>](&self, $($arg: $crate::first!($(($from))? ($type))),*) -> _ {  }
                 );
             }
 
@@ -271,47 +333,27 @@ macro_rules! widget {
     // widgets that are based on other widgets,
     // just changing around the arguments
     (
-        // optional doc comments
-        $(#[$($attrs:tt)*])*
-        // the name of the created and original widget
-        name: $name:ident,
-        // the path of the original widget's function (can't be a method currently)
-        origin: $origin:path,
-        // the path of the original struct to use as the return value (if it uses optional values)
-        $(struct_path: $struct_name:ty,)?
-        // the new widget's signature + the arguments passed into the original widget
-        // note: all the arguments have to have types
-        create: |$($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)?
-    ) => {
-        $crate::widget!(
-            $(#[$($attrs)*])*
-            name: $name,
-            $(struct_path: $struct_name,)?
-            create: |$($param: $type),*| { $origin($($arg),*) }
-        );
-    };
-    (
         // the parent struct that the widget becomes a method of
-        parent: $parent:ident$(< $($generic_name:ident: $generic_value:ty),* >)?,
+        $(parent: $parent:ident$(< $($generic_name:ident: $generic_value:ty),* >)?,)?
         // optional doc comments
         $(#[$($attrs:tt)*])*
         // the name of the created and original widget
         name: $name:ident,
         // the path of the original widget's function (can't be a method currently)
-        origin: $origin:path,
-        // the path of the original struct to use as the return value (if it uses optional values)
-        $(struct_path: $struct_name:ty,)?
+        origin: $origin:ident in $path:path,
+        // should the return value be the origin struct (if the origin has optionals) or just impl Widget
+        $(show_origin: $bool:literal,)?
         // the new widget's signature + the arguments passed into the original widget
-        // the first argument is &self, referring to the parent
+        // if the widget has a parent, the first argument must be &self, referring to it
         // note: all the arguments have to have types
-        create: |&$create_self:ident, $($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)? 
+        create: |$(&$create_self:ident,)? $($param:ident: $type:ty),*| ($($arg:expr),* $(,)?) $(,)? 
     ) => {
         $crate::widget!(
-            parent: $parent$(< $($generic_name: $generic_value),* >)?,
+            $(parent: $parent$(< $($generic_name: $generic_value),* >)?,)?
             $(#[$($attrs)*])*
             name: $name,
-            $(struct_path: $struct_name,)?
-            create: |&$create_self, $($param: $type),*| { $origin($($arg),*) }
+            $($crate::and!(($bool) struct_path: $struct_name,))?
+            create: |$(&$create_self,)? $($param: $type),*| { $path::$origin($($arg),*) }
         );
     };
     // widgets that are based on other widgets,
@@ -322,22 +364,21 @@ macro_rules! widget {
         $(#[$($attrs:tt)*])*
         // the name of the created and original widget
         name: $name:ident,
-        // the path of the original struct to use as the return value (if it uses optional values)
-        $(struct_path: $struct_name:ty,)?
+        // the return value of the function
+        // useful when the origin function has optional values
+        $(return_value: $return_value:ty,)?
         // the new widget's signature + the arguments passed into the original widget
         // note: all the arguments have to have types
-        create: |$($param:ident: $type:ty),*| { $($stmt:stmt);* } $(,)?
+        create: |$($param:ident: $type:ty),*| { $($body:tt)* } $(,)?
     ) => {
         paste::paste! {
-            $crate::select_return_value!(
-                ($($struct_name)?)
+            $crate::select_return_value!(first
+                ($($return_value)?)
                 (impl Widget + '_)
                 #[must_use]
                 #[allow(clippy::redundant_field_names)]
                 $(#[$($attrs)*])*
-                pub fn [<$name:lower>]($($param: $type),*) -> _ {
-                    $($stmt);*
-                }
+                pub fn [<$name:lower>]($($param: $type),*) -> _ { $($body)* }
             );
         }
     };
@@ -348,71 +389,202 @@ macro_rules! widget {
         $(#[$($attrs:tt)*])*
         // the name of the created and original widget
         name: $name:ident,
-        // the path of the original struct to use as the return value (if it uses optional values)
-        $(struct_path: $struct_name:ty,)?
+        // the return value of the function
+        // useful when the origin function has optional values
+        $(return_value: $return_value:ty,)?
         // the new widget's signature + the arguments passed into the original widget
         // the first argument is &self, referring to the parent
         // note: all the arguments have to have types
-        create: |&$create_self:ident, $($param:ident: $type:ty),*| { $($stmt:stmt);* } $(,)? 
+        create: |&$create_self:ident, $($param:ident: $type:ty),*| { $($body:tt)* } $(,)? 
     ) => {
         paste::paste! {
             impl$(< $($generic_name: $generic_value),* >)? $parent$(< $($generic_name),* >)? {
-                $crate::select_return_value!(
-                    ($($struct_name)?)
+                $crate::select_return_value!(first
+                    ($($return_value)?)
                     (impl Widget + '_)
                     #[must_use]
                     #[allow(clippy::redundant_field_names)]
                     $(#[$($attrs)*])*
-                    pub fn [<$name:lower>]<'a>(&'a $create_self, $($param: $type),*) -> _ {
-                        $($stmt)*
-                    }
+                    pub fn [<$name:lower>]<'a>(&'a $create_self, $($param: $type),*) -> _ { $($body)* }
                 );
             }
         }
     };
-}
+    // widget extensions with optionals
+    // behind the hood, the macro creates a builder
+    // that implements WidgetSource with `build`
+    (
+        // the parent struct that the widget becomes a method of
+        $(parent: $parent:ident$(< $($generic_name:ident: $generic_value:ty),* >)?,)?
+        // optional doc comments
+        $(#[$($attrs:tt)*])*
+        // the name of the widget and the function that creates it
+        name: $name:ident,
+        // the origin of the widget
+        origin: $func:ident in $path:path,
+        // the arguments for the creation function
+        args: ( $($arg:ident: $type:ty $([$from:ty $(as $method:ident)? $(> $($rest:tt)*)?])?),* $(,)? ),
+        // any optional arguments
+        // each is None by default, and can be set using methods with the same name
+        optionals: ( $($optional_name:ident: Option<$optional_type:ty>),* $(,)? ),
+        // a function to build the origin widget from this widget
+        build: |$self:ident| ($($buildarg:expr),* $(,)?) $(,)?
+    ) => {
+        $crate::widget!(
+            $(parent: $parent$(< $($generic_name: $generic_value),* >)?,)?
+            $(#[$($attrs)*])*
+            name: $name,
+            origin: $func in $path,
+            args: ( $($arg: $type $([$from $(as $method)? $(> $($rest)*)?])?),* ),
+            optionals: ( $($optional_name: Option<$optional_type>),* ),
+            build: |$self| { $path::$func($($buildarg),*) }
+        );
+    };
+    (
+        // the parent struct that the widget becomes a method of
+        parent: $parent:ident$(< $($generic_name:ident: $generic_value:ty),* >)?,
+        // optional doc comments
+        $(#[$($attrs:tt)*])*
+        // the name of the widget and the function that creates it
+        name: $name:ident,
+        // the origin of the widget
+        origin: $func:ident in $path:path,
+        // the arguments for the creation function
+        args: ( $($arg:ident: $type:ty $([$from:ty $(as $method:ident)? $(> $($rest:tt)*)?])?),* $(,)? ),
+        // any optional arguments
+        // each is None by default, and can be set using methods with the same name
+        optionals: ( $($optional_name:ident: Option<$optional_type:ty>),* $(,)? ),
+        // a function to build the origin widget from this widget
+        build: |$self:ident| { $($body:tt)* } $(,)?
+    ) => {
+        paste::paste! {
+            pub struct [<$name:camel>]<'a $(, $($generic_name: $generic_value),*)?> {
+                parent: &'a $parent$(<$($generic_name),*>)?, 
+                $($arg: $type),*,
+                $($optional_name: Option<$optional_type>),*
+            }
 
-// just used in the above macro
-#[doc(hidden)]
-#[macro_export]
-macro_rules! rightmost {
-    // (...)
-    (($($single:tt)*)) => {
-        $($single)*
+            impl<'a $(, $($generic_name: $generic_value),*)?> WidgetSource 
+                for [<$name:camel>]<'a $(, $($generic_name),*)?> 
+            {
+                type Output = $path::[<$func:camel>];
+                fn build($self) -> Self::Output { $($body)* }
+            }
+
+            impl$(< $($generic_name: $generic_value),* >)? $parent$(< $($generic_name),* >)? {
+                #[must_use]
+                #[allow(clippy::redundant_field_names)]
+                $(#[$($attrs)*])*
+                pub fn [<$name:lower>](&self, $($arg: $crate::first!($(($from))? ($type))),*) 
+                    -> [<$name:camel>]<'_ $(, $($generic_name),*)?> 
+                {
+                    [<$name:camel>] { parent: self, 
+                        $($arg: $crate::first!(
+                            $($(($arg$($rest)*))?)?
+                            ($arg$($(.$method())?)?)
+                        )),*,
+                        $($optional_name: None),*
+                    }
+                }
+            }
+
+            impl<'a $(, $($generic_name: $generic_value),*)?> [<$name:camel>]<'a $(, $($generic_name),*)?> {
+                $(
+                    #[must_use]
+                    #[allow(clippy::missing_const_for_fn)] // clippy wrong yet again
+                    pub fn $optional_name(self, $optional_name: $optional_type) -> Self {
+                        Self { $optional_name: Some($optional_name), ..self }
+                    }
+                )*
+            }
+        }       
     };
-    // (...) (...)
-    (($($left:tt)*) ($($right:tt)*)) => {
-        $($right)*
-    };
-    // (...)* (...) -- never used in normal practice
-    (($($left:tt)*) $($rest:tt)* ) => {
-        $crate::rightmost($($rest)*)
+    (
+        // optional doc comments
+        $(#[$($attrs:tt)*])*
+        // the name of the widget and the function that creates it
+        name: $name:ident,
+        // the origin of the widget
+        origin: $func:ident in $path:path,
+        // the arguments for the creation function
+        args: ( $($arg:ident: $type:ty $([$from:ty $(as $method:ident)? $(> $($rest:tt)*)?])?),* $(,)? ),
+        // any optional arguments
+        // each is None by default, and can be set using methods with the same name
+        optionals: ( $($optional_name:ident: Option<$optional_type:ty>),* $(,)? ),
+        // a function to build the origin widget from this widget
+        build: |$self:ident| { $($body:tt)* } $(,)?
+    ) => {
+        paste::paste! {
+            pub struct [<$name:camel>] {
+                $($arg: $type),*,
+                $($optional_name: Option<$optional_type>),*
+            }
+
+            impl WidgetSource for [<$name:camel>] {
+                type Output = $path::[<$func:camel>];
+                fn build($self) -> Self::Output { $($body)* }
+            }
+
+            #[must_use]
+            #[allow(clippy::redundant_field_names)]
+            $(#[$($attrs)*])*
+            pub fn [<$name:lower>]($($arg: $crate::first!($(($from))? ($type))),*) -> [<$name:camel>] {
+                [<$name:camel>] {
+                    $($arg: $crate::first!(
+                        $($(($arg$($rest)*))?)?
+                        ($arg$($(.$method())?)?)
+                    )),*,
+                    $($optional_name: None),*
+                }
+            }
+
+            impl [<$name:camel>] {
+                $(
+                    #[must_use]
+                    #[allow(clippy::missing_const_for_fn)] // clippy wrong yet again
+                    pub fn $optional_name(self, $optional_name: $optional_type) -> Self {
+                        Self { $optional_name: Some($optional_name), ..self }
+                    }
+                )*
+            }
+        }
     }
 }
 
 // just used in the above macro
-// if the first () is present, then the right () is used
-// otherwise, the left () is used
-// ! flips this behavior
 #[doc(hidden)]
 #[macro_export]
-macro_rules! select {
-    (() ($($left:tt)*) ($($right:tt)*)) => { $($left)* };
-    (($($cond:tt)*) ($($left:tt)*) ($($right:tt)*)) => { $($right)* };
-    (!() ($($left:tt)*) ($($right:tt)*)) => { $($right)* };
-    (!($($cond:tt)*) ($($left:tt)*) ($($right:tt)*)) => { $($left)* };
+macro_rules! first {
+    // (...)* (...)
+    (($($left:tt)*) $($rest:tt)* ) => {
+        $($left)*
+    }
 }
 
-// use the left return value if it exists,
-// otherwise use the right return value
 #[doc(hidden)]
 #[macro_export]
 macro_rules! select_return_value {
-    (() ($($right:tt)*) $(#[$attr:meta])* $vis:vis fn $name:ident$(<$($lifetimes:lifetime),*>)?($($args:tt)*) -> _ { $($body:tt)* }) => {
+    // first if it exists
+    (first () ($($right:tt)*) 
+        $(#[$attr:meta])* $vis:vis fn $name:ident$(<$($lifetimes:lifetime),*>)?($($args:tt)*) -> _ { $($body:tt)* }
+    ) => {
         $(#[$attr])* $vis fn $name$(<$($lifetimes),*>)?($($args)*) -> $($right)* { $($body)* }
     };
-    (($($left:tt)*) ($($right:tt)*) $(#[$attr:meta])* $vis:vis fn $name:ident$(<$($lifetimes:lifetime),*>)?($($args:tt)*) -> _ { $($body:tt)* }) => {
+    (first ($($left:tt)*) ($($right:tt)*) 
+        $(#[$attr:meta])* $vis:vis fn $name:ident$(<$($lifetimes:lifetime),*>)?($($args:tt)*) -> _ { $($body:tt)* }
+    ) => {
         $(#[$attr])* $vis fn $name$(<$($lifetimes),*>)?($($args)*) -> $($left)* { $($body)* }
+    };
+    // left if there's nothing, otherwise right
+    (select () ($($left:tt)*) ($($right:tt)*) 
+        $(#[$attr:meta])* $vis:vis fn $name:ident$(<$($lifetimes:lifetime),*>)?($($args:tt)*) -> _ { $($body:tt)* }
+    ) => {
+        $(#[$attr])* $vis fn $name$(<$($lifetimes),*>)?($($args)*) -> $($left)* { $($body)* }
+    };
+    (select ($($cond:tt)*) ($($left:tt)*) ($($right:tt)*) 
+        $(#[$attr:meta])* $vis:vis fn $name:ident$(<$($lifetimes:lifetime),*>)?($($args:tt)*) -> _ { $($body:tt)* }
+    ) => {
+        $(#[$attr])* $vis fn $name$(<$($lifetimes),*>)?($($args)*) -> $($right)* { $($body)* }
     };
 }
 
@@ -427,6 +599,15 @@ macro_rules! optional_attr {
     (($($cond:tt)*) ($($attr:tt)*) $item:item) => { $($attr)* $item };
     (!() ($($attr:tt)*) $item:item) => { $($attr)* $item };
     (!($($cond:tt)*) ($($attr:tt)*) $item:item) => { $item };
+}
+
+// returns the result if there are tokens inside the first () and they aren't false
+#[doc(hidden)]
+#[macro_export]
+macro_rules! and {
+    (() $($tt:tt)*) => { };
+    ((false) $($tt:tt)*) => { };
+    (($($cond:tt)*) $($tt:tt)*) => { $($tt)* };
 }
 
 pub use widget;
@@ -456,6 +637,16 @@ pub trait Widget {
     fn draw<C: Canvas>(self, canvas: &mut C) -> Result<(), Error>;
     /// The name of the widget to be used in error messages
     fn name() -> &'static str;
+}
+
+pub trait WidgetSource {
+    type Output: Widget;
+    fn build(self) -> Self::Output;
+}
+
+impl<W: Widget> WidgetSource for W {
+    type Output = Self;
+    fn build(self) -> Self::Output { self }
 }
 
 /// Truncate `string` to `max_width` optionally from the end if specified
